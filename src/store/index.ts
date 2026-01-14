@@ -19,7 +19,7 @@ interface AppState {
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
   fetchSkills: () => Promise<void>;
-  addPracticeLog: (skillName: string, content: string, wordCount: number) => Promise<void>;
+  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string) => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -93,7 +93,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPracticeLog: async (skillName, content, wordCount) => {
+  addPracticeLog: async (skillName, content, wordCount, postLink) => {
     const { user, fetchSkills } = get();
     if (!user) return;
 
@@ -104,7 +104,8 @@ export const useStore = create<AppState>((set, get) => ({
           user_id: user.id,
           skill_name: skillName,
           content,
-          word_count: wordCount
+          word_count: wordCount,
+          post_link: postLink
         });
 
       if (error) throw error;

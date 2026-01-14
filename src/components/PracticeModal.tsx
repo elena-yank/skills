@@ -10,21 +10,23 @@ interface PracticeModalProps {
 
 export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen, onClose }) => {
   const [content, setContent] = useState('');
+  const [postLink, setPostLink] = useState('');
   const { addPracticeLog } = useStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
   const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length;
-  const isValid = wordCount >= 200;
+  const isValid = wordCount >= 200 && postLink.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!isValid) return;
     
     setIsSubmitting(true);
     try {
-      await addPracticeLog(skillName, content, wordCount);
+      await addPracticeLog(skillName, content, wordCount, postLink);
       setContent('');
+      setPostLink('');
       onClose();
     } catch (error) {
       console.error(error);
@@ -46,18 +48,30 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
           </button>
         </div>
 
-        <div className="p-6 flex-1 overflow-auto">
+        <div className="p-6 flex-1 overflow-auto space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-hogwarts-ink mb-1 font-serif">Ссылка на пост</label>
+            <input
+              type="url"
+              value={postLink}
+              onChange={(e) => setPostLink(e.target.value)}
+              className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-serif"
+              placeholder="https://..."
+              required
+            />
+          </div>
+
           <div className="relative">
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full h-64 p-4 bg-white border-2 border-hogwarts-bronze rounded-lg resize-none focus:outline-none focus:border-hogwarts-red font-body text-lg leading-relaxed bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] font-serif"
+              className="w-full h-64 p-4 bg-white border-2 border-hogwarts-bronze rounded-lg resize-none focus:outline-none focus:border-hogwarts-red font-body text-lg leading-relaxed font-serif"
               placeholder="Напишите здесь своё эссе о практике... (Минимум 200 слов)"
             />
             <Scroll className="absolute bottom-4 right-4 text-hogwarts-bronze opacity-50 pointer-events-none" />
           </div>
           
-          <div className="mt-4 flex justify-between items-center text-hogwarts-ink font-bold font-serif">
+          <div className="flex justify-between items-center text-hogwarts-ink font-bold font-serif">
             <span className={`${wordCount < 200 ? 'text-hogwarts-red' : 'text-hogwarts-green'}`}>
               Количество слов: {wordCount} / 200
             </span>

@@ -37,7 +37,7 @@ export const Dashboard: React.FC = () => {
             className="flex items-center gap-2 text-hogwarts-red hover:text-red-900 font-bold font-magical px-4 py-2 border-2 border-transparent hover:border-hogwarts-red rounded transition-all font-serif"
           >
             <LogOut className="w-5 h-5" />
-            Покинуть Хогвартс
+            Выйти
           </button>
         </header>
 
@@ -45,7 +45,7 @@ export const Dashboard: React.FC = () => {
           {skills.map((skill) => (
             <div 
               key={skill.id} 
-              className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden group hover:shadow-xl transition-shadow bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')]"
+              className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden group hover:shadow-xl transition-shadow"
             >
               <div className="flex justify-between items-center mb-4">
                 <h3 
@@ -71,7 +71,7 @@ export const Dashboard: React.FC = () => {
                   className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
                   style={{ width: `${skill.progress}%` }}
                 >
-                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-30"></div>
+                  <div className="absolute inset-0 bg-white/10 opacity-30"></div>
                 </div>
               </div>
               

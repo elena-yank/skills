@@ -103,7 +103,7 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-hogwarts-blue relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+      <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-white/10 to-transparent"></div>
       
       <div className="bg-hogwarts-parchment p-8 rounded-lg shadow-2xl w-full max-w-md relative z-10 border-4 border-hogwarts-gold">
         <div className="text-center mb-8">

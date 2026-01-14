@@ -10,11 +10,13 @@ interface Log {
   word_count: number;
   created_at: string;
   user_id: string;
+  post_link?: string;
 }
 
 const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boolean }> = ({ log, onDelete, isOwner }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { user } = useStore();
   
   // Split content into paragraphs
   const paragraphs = log.content.split('\n').filter(p => p.trim().length > 0);
@@ -31,14 +33,14 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
 
   return (
     <article 
-      className="bg-white p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')]"
+      className="bg-white p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative"
     >
       {showConfirm && (
         <div className="absolute inset-0 bg-white/95 z-10 flex flex-col items-center justify-center rounded-lg p-8 animate-in fade-in duration-200">
             <Trash2 className="w-12 h-12 text-hogwarts-red mb-4" />
-            <p className="text-xl font-magical text-center text-hogwarts-ink mb-2">Вы действительно хотите сжечь этот свиток?</p>
+            <p className="text-xl font-magical text-center text-hogwarts-ink mb-2">{user?.name}, ты действительно хочешь удалить этот пост?</p>
             <p className="text-sm text-hogwarts-ink/60 text-center mb-6 max-w-sm">
-                Заклинание Репаро не сможет восстановить его.
+                Даже заклинание репАро не сможет восстановить его!
             </p>
             <div className="flex gap-4">
                 <button
@@ -51,7 +53,7 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
                     onClick={confirmDelete}
                     className="px-4 py-2 rounded bg-hogwarts-red text-hogwarts-gold font-bold hover:bg-red-900 transition-colors shadow-md border border-hogwarts-gold font-serif"
                 >
-                    Уничтожить
+                    Удалить
                 </button>
             </div>
         </div>
@@ -67,6 +69,18 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
             hour: '2-digit',
             minute: '2-digit'
           })}
+          {log.post_link && (
+            <a 
+              href={log.post_link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="ml-4 flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors"
+              title="Открыть ссылку"
+            >
+              <Feather className="w-4 h-4" />
+              Ссылка
+            </a>
+          )}
         </div>
         <div className="flex items-center gap-4">
             <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
@@ -107,12 +121,12 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
           {isExpanded ? (
             <>
               <ChevronUp className="w-4 h-4" />
-              Свернуть свиток
+              Свернуть
             </>
           ) : (
             <>
               <ChevronDown className="w-4 h-4" />
-              Развернуть свиток
+              Развернуть
             </>
           )}
         </button>
