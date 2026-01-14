@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { useStore } from '../store';
+import castleImg from '../assets/castle.png';
 
 interface Log {
   id: string;
@@ -180,22 +181,32 @@ export const SkillDetail: React.FC = () => {
   const decodedSkillName = decodeURIComponent(skillName || '');
 
   return (
-    <div className="min-h-screen bg-hogwarts-parchment p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen relative">
+      {/* Background Image */}
+      <div className="fixed inset-0 z-0">
+        <img 
+          src={castleImg} 
+          alt="Hogwarts Castle" 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60 z-10"></div>
+      </div>
+
+      <div className="relative z-20 max-w-4xl mx-auto p-8">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-hogwarts-ink hover:text-hogwarts-red mb-8 font-magical font-bold transition-colors font-serif"
+          className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
         >
           <ArrowLeft className="w-5 h-5" />
           Вернуться в кабинет
         </button>
 
-        <header className="mb-12 border-b-4 border-hogwarts-gold pb-6">
+        <header className="mb-12 border-b-4 border-hogwarts-gold pb-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-xl">
           <h1 className="text-4xl text-hogwarts-red font-magical flex items-center gap-4 font-serif">
             <Feather className="w-10 h-10" />
             {decodedSkillName}
           </h1>
-          <p className="text-hogwarts-ink text-lg italic mt-2 font-serif">Записи и история практики</p>
+          <p className="text-hogwarts-ink text-lg italic mt-2 font-serif">История практики</p>
         </header>
 
         {isLoading ? (

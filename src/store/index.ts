@@ -83,7 +83,7 @@ export const useStore = create<AppState>((set, get) => ({
         id: name,
         name,
         progress: Math.min(progressMap.get(name) || 0, 100) // Cap at 100%
-      }));
+      })).sort((a, b) => b.progress - a.progress);
 
       set({ skills: updatedSkills });
     } catch (error) {

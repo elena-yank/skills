@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { SkillDetail } from './pages/SkillDetail';
+import { PublicProfile } from './pages/PublicProfile';
 import { useStore } from './store';
 import { supabase } from './lib/supabase';
 
@@ -21,6 +22,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/u/:username" element={<PublicProfile />} />
         <Route
           path="/"
           element={

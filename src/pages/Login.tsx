@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Wand2, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
+import castleImg from '../assets/castle.png';
 
 export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -103,18 +104,35 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-hogwarts-blue relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-white/10 to-transparent"></div>
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+         <img 
+            src={castleImg}
+            alt="Hogwarts Great Hall"
+            className="w-full h-full object-cover"
+         />
+         <div className="absolute inset-0 bg-black/60"></div>
+      </div>
       
-      <div className="bg-hogwarts-parchment p-8 rounded-lg shadow-2xl w-full max-w-md relative z-10 border-4 border-hogwarts-gold">
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-hogwarts-red rounded-full flex items-center justify-center mb-4 border-2 border-hogwarts-gold shadow-lg">
-            <Wand2 className="w-8 h-8 text-hogwarts-gold" />
-          </div>
-          <h1 className="text-3xl text-hogwarts-red mb-2 font-serif">Hogwarts Skills</h1>
-          <p className="text-hogwarts-ink italic">"Draco Dormiens Nunquam Titillandus"</p>
+      <div className="relative w-full max-w-md p-12 min-h-[500px] flex flex-col justify-center z-10">
+        {/* Parchment Background */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/assets/parchment.png"
+            alt="Parchment"
+            className="w-full h-full object-fill drop-shadow-2xl mix-blend-lighten scale-110"
+          />
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-6">
+        <div className="relative z-10 px-4">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl text-hogwarts-red mb-2 !font-seminaria font-bold leading-tight whitespace-nowrap">
+              Добро пожаловать!
+            </h1>
+            <p className="text-hogwarts-ink italic text-sm">"Draco Dormiens Nunquam Titillandus"</p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
           {error && (
             <div className="p-3 bg-red-100 border border-red-300 text-red-800 rounded text-sm text-center font-serif">
               {error}
@@ -151,7 +169,7 @@ export const Login: React.FC = () => {
             disabled={isLoading}
             className="w-full bg-hogwarts-red text-hogwarts-gold font-serif font-bold py-3 px-4 rounded border-2 border-hogwarts-gold hover:bg-red-900 transition-colors flex items-center justify-center gap-2 shadow-md uppercase tracking-wider"
           >
-            {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Зачислиться' : 'Войти в гостиную')}
+            {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Зачислиться' : 'ВОЙТИ')}
           </button>
         </form>
 
@@ -163,10 +181,11 @@ export const Login: React.FC = () => {
             }}
             className="text-hogwarts-blue hover:text-hogwarts-red underline text-sm font-bold font-serif"
           >
-            {isSignUp ? 'Уже учитесь? Войти' : 'Впервые в Хогвартсе? Зачислиться'}
+            {isSignUp ? 'Уже учитесь? Войти' : 'Впервые здесь? Стать участником'}
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };

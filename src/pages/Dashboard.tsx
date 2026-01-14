@@ -1,35 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { Plus, LogOut, GraduationCap } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check } from 'lucide-react';
 import { PracticeModal } from '../components/PracticeModal';
 import { useNavigate } from 'react-router-dom';
+import castleImg from '../assets/castle.png';
 
 export const Dashboard: React.FC = () => {
   const { user, skills, fetchSkills, signOut } = useStore();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchSkills();
   }, [fetchSkills]);
 
+  const handleCopyLink = () => {
+    const safeName = user?.name.replace(/\s+/g, '_');
+    const url = `${window.location.origin}/u/${safeName}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleSkillClick = (skillName: string) => {
     navigate(`/skill/${encodeURIComponent(skillName)}`);
   };
 
   return (
-    <div className="min-h-screen bg-hogwarts-parchment relative">
-      <div className="max-w-4xl mx-auto p-8">
-        <header className="flex justify-between items-center mb-12 border-b-4 border-hogwarts-gold pb-6">
+    <div className="min-h-screen relative">
+      {/* Background Image */}
+      <div className="fixed inset-0 z-0">
+        <img 
+          src={castleImg} 
+          alt="Hogwarts Castle" 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60 z-10"></div>
+      </div>
+
+      {/* Content */}
+      <div className="relative z-20 min-h-screen flex flex-col">
+        <div className="max-w-4xl mx-auto p-8 w-full mt-8">
+        <header className="flex justify-between items-center mb-12 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-xl border-2 border-hogwarts-gold">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold">
+            <div className="w-16 h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0">
               <GraduationCap className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-4xl text-hogwarts-red font-magical font-serif">Личный кабинет</h1>
-              <p className="text-hogwarts-ink text-lg italic font-serif">
+              <h2 className="text-3xl text-hogwarts-red font-magical font-serif">Личный кабинет</h2>
+              <p className="text-hogwarts-ink text-lg font-seminaria font-normal">
                 Добро пожаловать, {user?.name || 'Волшебник'}
               </p>
+              <button 
+                onClick={handleCopyLink}
+                className="text-xs flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red mt-1 font-serif underline"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                {copied ? 'Ссылка скопирована' : 'Поделиться профилем'}
+              </button>
             </div>
           </div>
           <button
@@ -41,7 +70,7 @@ export const Dashboard: React.FC = () => {
           </button>
         </header>
 
-        <div className="grid gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {skills.map((skill) => (
             <div 
               key={skill.id} 
@@ -90,6 +119,7 @@ export const Dashboard: React.FC = () => {
         isOpen={!!selectedSkill}
         onClose={() => setSelectedSkill(null)}
       />
+      </div>
     </div>
   );
 };

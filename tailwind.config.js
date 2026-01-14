@@ -21,6 +21,8 @@ export default {
       },
       fontFamily: {
         magical: ['Cinzel', 'serif'],
+        harry: ['Ruslan Display', 'cursive'],
+        seminaria: ['ProjectSeminaria', 'serif'],
         body: ['Crimson Text', 'serif'],
       },
       backgroundImage: {
