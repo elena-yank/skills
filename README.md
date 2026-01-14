@@ -1,57 +1,70 @@
-# React + TypeScript + Vite
+# Skills 🧙‍♂️
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Магический трекер навыков для волшебников Хогвартса. Приложение позволяет студентам отслеживать свой прогресс в изучении магических дисциплин, вести дневники практики и делиться своими достижениями.
 
-Currently, two official plugins are available:
+🔗 **Демо**: [skills.aurorhq.ru](https://skills.aurorhq.ru)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Особенности
 
-## Expanding the ESLint configuration
+- **Аутентификация Волшебников**: Вход и регистрация с проверкой имени (только кириллица) и "заклинания" (пароля).
+- **Личный Кабинет**: Обзор всех навыков и текущего прогресса.
+- **Трекинг Навыков**:
+  - Беспалочковая магия
+  - Невербальная магия
+  - Трансгрессия
+  - Анимагия
+  - Мортимагия
+- **Дневник Практики**: Возможность добавлять записи о тренировках (эссе минимум на 200 слов) с ссылками на доказательства.
+- **Публичные Профили**: Возможность поделиться ссылкой на свой магический паспорт (например, `skills.aurorhq.ru/u/Гарри_Поттер`).
+- **Атмосферный Дизайн**: Интерфейс выполнен в стиле пергаментов, с использованием шрифтов и цветов, вдохновленных вселенной Гарри Поттера.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠 Технологический стек
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- **Frontend**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS (кастомная конфигурация цветов и шрифтов)
+- **State Management**: Zustand
+- **Backend / Database**: Supabase
+- **Icons**: Lucide React
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🚀 Запуск проекта
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Клонируйте репозиторий**
+   ```bash
+   git clone https://github.com/your-username/skills.git
+   cd skills
+   ```
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+2. **Установите зависимости**
+   ```bash
+   npm install
+   ```
+
+3. **Настройка окружения**
+   Создайте файл `.env` в корне проекта и добавьте ключи Supabase:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Запуск в режиме разработки**
+   ```bash
+   npm run dev
+   ```
+
+5. **Сборка для продакшена**
+   ```bash
+   npm run build
+   ```
+
+## 📜 Структура Базы Данных (Supabase)
+
+- **wizards**: Таблица пользователей (id, name, password).
+- **practice_logs**: Журнал практики (id, user_id, skill_name, content, word_count, post_link, created_at).
+
+## 🧙‍♂️ Разработка
+
+Проект настроен для деплоя на `skills.aurorhq.ru`. 
+В `vite.config.ts` установлен `base: '/'`.
+
+---
+*"Draco Dormiens Nunquam Titillandus"*
