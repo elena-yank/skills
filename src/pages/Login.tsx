@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Wand2, Loader2 } from 'lucide-react';
 import { useStore } from '../store';
 import castleImg from '../assets/castle.png';
+import parchmentImg from '../assets/parchment.png';
 
 export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -40,7 +41,7 @@ export const Login: React.FC = () => {
 
     // Validate password length
     if (password.length < 6) {
-      setError('Заклинание (пароль) должно быть не короче 6 символов.');
+      setError('Пароль должен быть не короче 6 символов');
       setIsLoading(false);
       return;
     }
@@ -84,7 +85,7 @@ export const Login: React.FC = () => {
           .single();
 
         if (error || !data) {
-           throw new Error('Неверное имя или заклинание (пароль).');
+           throw new Error('Неверное имя или пароль');
         }
 
         setUser(data);
@@ -93,7 +94,7 @@ export const Login: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       if (err.message.includes('JSON object requested, multiple (or no) rows returned')) {
-         setError('Неверное имя или заклинание (пароль).');
+         setError('Неверное имя или пароль');
       } else {
          setError(err.message);
       }
@@ -118,7 +119,7 @@ export const Login: React.FC = () => {
         {/* Parchment Background */}
         <div className="absolute inset-0 z-0">
           <img 
-            src="/assets/parchment.png"
+            src={parchmentImg}
             alt="Parchment"
             className="w-full h-full object-fill drop-shadow-2xl mix-blend-lighten scale-110"
           />
