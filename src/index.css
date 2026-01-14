@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-hogwarts-parchment text-hogwarts-ink font-body;
+    background-image: url('https://www.transparenttextures.com/patterns/aged-paper.png');
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-magical font-bold;
+  }
+}
