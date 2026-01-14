@@ -35,23 +35,14 @@ export const PublicProfile: React.FC = () => {
         const dbName = username?.replace(/_/g, ' ');
 
         // 1. Find user by name (case insensitive search)
-        const { data: userData, error: userError } = await supabase
-          .from('wizards')
-          .select('id, name')
-          .ilike('name', dbName || '')
-          .single();
+        const userData = await api.auth.getUserByName(dbName || '');
 
-        if (userError || !userData) {
+        if (!userData) {
           throw new Error('Волшебник не найден');
         }
 
         // 2. Fetch logs
-        const { data: logsData, error: logsError } = await supabase
-          .from('practice_logs')
-          .select('skill_name')
-          .eq('user_id', userData.id);
-
-        if (logsError) throw logsError;
+        const logsData = await api.logs.list(userData.id);
 
         // 3. Calculate progress
         const progressMap = new Map<string, number>();

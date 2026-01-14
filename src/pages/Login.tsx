@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { Wand2, Loader2 } from 'lucide-react';
 import { useStore } from '../store';

@@ -65,12 +65,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isLoading: true });
     try {
       // Get all logs for the user
-      const { data, error } = await supabase
-        .from('practice_logs')
-        .select('skill_name')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      const data = await api.logs.list(user.id);
 
       // Calculate progress: 1 log = 1%
       const progressMap = new Map<string, number>();
@@ -98,17 +93,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('practice_logs')
-        .insert({
-          user_id: user.id,
-          skill_name: skillName,
-          content,
-          word_count: wordCount,
-          post_link: postLink
-        });
-
-      if (error) throw error;
+      await api.logs.create({
+        user_id: user.id,
+        skill_name: skillName,
+        content,
+        word_count: wordCount,
+        post_link: postLink
+      });
 
       // Refresh skills to update progress
       await fetchSkills();
@@ -123,14 +114,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('practice_logs')
-        .delete()
-        .eq('id', logId)
-        .eq('user_id', user.id); // Ensure we only delete our own logs
-
-      if (error) throw error;
-
+      await api.logs.delete(logId, user.id);
       await fetchSkills();
     } catch (error) {
       console.error('Error deleting log:', error);
