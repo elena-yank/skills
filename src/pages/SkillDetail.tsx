@@ -72,7 +72,7 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
           })}
           {log.post_link && (
             <a 
-              href={log.post_link} 
+              href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
               target="_blank" 
               rel="noopener noreferrer" 
               className="ml-4 flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors"
@@ -108,7 +108,7 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
           <div>
             <p className="mb-4 line-clamp-3">{firstParagraph}</p>
             {!isExpanded && paragraphs.length > 0 && (
-               <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/90 to-transparent pointer-events-none rounded-b-lg" />
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/90 to-transparent pointer-events-none rounded-b-lg" />
             )}
           </div>
         )}
@@ -137,21 +137,46 @@ const LogItem: React.FC<{ log: Log; onDelete: (id: string) => void; isOwner: boo
 };
 
 export const SkillDetail: React.FC = () => {
-  const { skillName } = useParams<{ skillName: string }>();
+  const { skillName, username } = useParams<{ skillName: string; username?: string }>();
   const [logs, setLogs] = useState<Log[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const { user, deletePracticeLog } = useStore();
+  const [targetUserId, setTargetUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLogs = async () => {
-      if (!user || !skillName) return;
+      if (!skillName) return;
 
+      setIsLoading(true);
       try {
+        let userIdToFetch = user?.id;
+
+        if (username) {
+            // Fetch user by username if provided
+             const dbName = username.replace(/_/g, ' ');
+             const { data: userData, error: userError } = await supabase
+              .from('wizards')
+              .select('id')
+              .ilike('name', dbName)
+              .single();
+             
+             if (userError || !userData) throw new Error('Wizard not found');
+             userIdToFetch = userData.id;
+        }
+
+        if (!userIdToFetch) {
+            // Wait for user to be loaded or redirect if necessary
+            setIsLoading(false);
+            return;
+        }
+
+        setTargetUserId(userIdToFetch);
+
         const { data, error } = await supabase
           .from('practice_logs')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userIdToFetch)
           .eq('skill_name', decodeURIComponent(skillName))
           .order('created_at', { ascending: false });
 
@@ -165,7 +190,7 @@ export const SkillDetail: React.FC = () => {
     };
 
     fetchLogs();
-  }, [user, skillName]);
+  }, [user, skillName, username]);
 
   const handleDeleteLog = async (id: string) => {
     try {
@@ -179,6 +204,7 @@ export const SkillDetail: React.FC = () => {
   };
 
   const decodedSkillName = decodeURIComponent(skillName || '');
+  const isOwner = user?.id === targetUserId;
 
   return (
     <div className="min-h-screen relative">
@@ -194,11 +220,11 @@ export const SkillDetail: React.FC = () => {
 
       <div className="relative z-20 max-w-4xl mx-auto p-8">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => username ? navigate(`/u/${username}`) : navigate('/')}
           className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
         >
           <ArrowLeft className="w-5 h-5" />
-          Вернуться в кабинет
+          {username ? 'Вернуться к профилю' : 'Вернуться в кабинет'}
         </button>
 
         <header className="mb-12 border-b-4 border-hogwarts-gold pb-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-xl">
@@ -218,7 +244,9 @@ export const SkillDetail: React.FC = () => {
           <div className="text-center py-12 bg-white/50 rounded-lg border-2 border-hogwarts-bronze border-dashed">
             <Scroll className="w-16 h-16 mx-auto text-hogwarts-silver mb-4" />
             <p className="text-xl font-magical text-hogwarts-ink font-serif">Пока нет записей.</p>
-            <p className="text-hogwarts-ink/70 font-serif">Вернитесь в личный кабинет, чтобы начать практику.</p>
+            {isOwner && (
+                <p className="text-hogwarts-ink/70 font-serif">Вернитесь в личный кабинет, чтобы начать практику.</p>
+            )}
           </div>
         ) : (
           <div className="space-y-8">
@@ -227,7 +255,7 @@ export const SkillDetail: React.FC = () => {
                 key={log.id} 
                 log={log} 
                 onDelete={handleDeleteLog}
-                isOwner={user?.id === log.user_id}
+                isOwner={isOwner}
               />
             ))}
           </div>

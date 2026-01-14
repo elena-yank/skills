@@ -23,6 +23,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/u/:username" element={<PublicProfile />} />
+        <Route path="/u/:username/skill/:skillName" element={<SkillDetail />} />
         <Route
           path="/"
           element={

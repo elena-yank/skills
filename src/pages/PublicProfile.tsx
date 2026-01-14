@@ -142,7 +142,7 @@ export const PublicProfile: React.FC = () => {
                 <div className="text-center md:text-left">
                     <h2 className="text-4xl text-hogwarts-red font-magical font-serif mb-2">{username?.replace(/_/g, ' ')}</h2>
                     <p className="text-hogwarts-ink text-xl font-serif italic">
-                        Карточка студента Хогвартса
+                        Карточка навыков
                     </p>
                 </div>
             </header>
@@ -151,7 +151,8 @@ export const PublicProfile: React.FC = () => {
             {skills.map((skill) => (
                 <div 
                 key={skill.id} 
-                className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden"
+                onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
+                className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden cursor-pointer hover:shadow-xl transition-all transform hover:-translate-y-1"
                 >
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-2xl font-magical text-hogwarts-blue font-serif">
