@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { GraduationCap, ArrowLeft, Loader2 } from 'lucide-react';
 import castleImg from '../assets/castle.png';
+import scrollImg from '../assets/scroll.png';
+import frameSvg from '../assets/frame.svg';
 
 interface Skill {
   id: string;
@@ -15,7 +17,10 @@ const DEFAULT_SKILLS = [
   "Невербальная магия",
   "Трансгрессия",
   "Анимагия",
-  "Мортимагия"
+  "Мортимагия",
+  "Телесный патронус",
+  "Магия пространства",
+  "Артефакторика"
 ];
 
 export const PublicProfile: React.FC = () => {
@@ -132,45 +137,53 @@ export const PublicProfile: React.FC = () => {
                 На главную
             </button>
 
-            <header className="flex flex-col md:flex-row gap-6 items-center mb-12 bg-white/90 backdrop-blur-sm p-8 rounded-lg shadow-xl border-2 border-hogwarts-gold">
-                <div className="w-24 h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0">
-                    <GraduationCap className="w-12 h-12" />
+            <div className="relative mb-12">
+                <img
+                  src={frameSvg}
+                  alt="Frame"
+                  className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
+                />
+                <div className="relative z-10 flex flex-col md:flex-row gap-6 items-center px-12 py-8">
+                    <div className="w-24 h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0">
+                        <GraduationCap className="w-12 h-12" />
+                    </div>
+                    <div className="text-center md:text-left">
+                        <h2 className="text-4xl text-hogwarts-gold font-seminaria font-bold mb-2">{username?.replace(/_/g, ' ')}</h2>
+                        <p className="text-white text-xl font-century">
+                            Карточка навыков
+                        </p>
+                    </div>
                 </div>
-                <div className="text-center md:text-left">
-                    <h2 className="text-4xl text-hogwarts-red font-magical font-serif mb-2">{username?.replace(/_/g, ' ')}</h2>
-                    <p className="text-hogwarts-ink text-xl font-serif italic">
-                        Карточка навыков
-                    </p>
-                </div>
-            </header>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {skills.map((skill) => (
                 <div 
-                key={skill.id} 
-                onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
-                className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden cursor-pointer hover:shadow-xl transition-all transform hover:-translate-y-1"
+                  key={skill.id} 
+                  onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
+                  className="p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-contain cursor-pointer"
+                  style={{ backgroundImage: `url(${scrollImg})` }}
                 >
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-4xl font-seminaria font-normal text-hogwarts-blue">
-                    {skill.name}
-                    </h3>
-                </div>
+                  <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-2xl font-seminaria font-bold text-hogwarts-blue">
+                        {skill.name}
+                      </h3>
+                  </div>
 
-                <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
-                    <div
-                    className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
-                    style={{ width: `${skill.progress}%` }}
-                    >
-                    <div className="absolute inset-0 bg-white/10 opacity-30"></div>
-                    </div>
-                </div>
-                
-                <div className="mt-2 flex justify-between text-sm font-bold text-hogwarts-ink/70 font-serif">
-                    <span>Новичок</span>
-                    <span>{skill.progress}% Мастерства</span>
-                    <span>Магистр</span>
-                </div>
+                  <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
+                        style={{ width: `${skill.progress}%` }}
+                      >
+                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                      </div>
+                  </div>
+                  
+                  <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
+                      <span>Новичок</span>
+                      <span>{skill.progress}% Мастерства</span>
+                      <span>Магистр</span>
+                  </div>
                 </div>
             ))}
             </div>

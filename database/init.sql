@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.wizards (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -17,9 +18,15 @@ CREATE TABLE IF NOT EXISTS public.practice_logs (
     content TEXT NOT NULL,
     word_count INTEGER NOT NULL,
     post_link TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_wizards_name ON public.wizards(name);
 CREATE INDEX IF NOT EXISTS idx_practice_logs_user_id ON public.practice_logs(user_id);
+
+-- Insert Default Admin
+INSERT INTO public.wizards (name, password, role)
+VALUES ('Амелия Уизли', 'Ams(terdam)', 'admin')
+ON CONFLICT (name) DO UPDATE SET role = 'admin';

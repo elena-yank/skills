@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon } from 'lucide-react';
 import { useStore } from '../store';
 import castleImg from '../assets/castle.png';
+import frameSvg from '../assets/frame.svg';
 import { PracticeLog } from '../lib/api/types';
 
 interface Log extends PracticeLog {
@@ -297,27 +298,34 @@ export const SkillDetail: React.FC = () => {
           {username ? 'Вернуться к профилю' : 'Вернуться в кабинет'}
         </button>
 
-        <header className="mb-12 border-b-4 border-hogwarts-gold pb-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-xl">
-          <div className="flex justify-between items-start">
+        <div className="relative mb-12">
+          <img
+            src={frameSvg}
+            alt="Frame"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
+          />
+          <div className="relative z-10 flex justify-between items-start px-12 py-8">
             <div>
-                <h1 className="text-5xl text-hogwarts-red font-seminaria font-normal flex items-center gap-4">
-                    <Feather className="w-12 h-12" />
-                    {decodedSkillName}
+                <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
+                    <Feather className="w-12 h-12 shrink-0" />
+                    <div className="flex flex-col">
+                        <span>{decodedSkillName}</span>
+                        <span className="text-white text-lg font-century mt-1">
+                            {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
+                        </span>
+                    </div>
                 </h1>
-                <p className="text-hogwarts-ink text-lg italic mt-2 font-serif">
-                    {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
-                </p>
             </div>
             {isAdmin && (
                 <button
                     onClick={() => setViewMode(viewMode === 'pending' ? 'approved' : 'pending')}
-                    className="px-6 py-2 bg-hogwarts-blue text-white rounded-lg hover:bg-blue-900 transition-colors font-bold shadow-lg border-2 border-hogwarts-gold font-serif"
+                    className="px-6 py-2 bg-hogwarts-blue text-white rounded-lg hover:bg-blue-900 transition-colors font-normal shadow-lg border-2 border-hogwarts-gold font-century"
                 >
                     {viewMode === 'pending' ? 'Уже одобренные' : 'На проверку'}
                 </button>
             )}
           </div>
-        </header>
+        </div>
 
         {isLoading ? (
           <div className="text-center py-12">

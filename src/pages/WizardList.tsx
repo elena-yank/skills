@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, User, Search } from 'lucide-react';
 import castleImg from '../assets/castle.png';
+import frameSvg from '../assets/frame.svg';
 import { User as UserType } from '../lib/api/types';
 import { useStore } from '../store';
 
@@ -53,14 +54,19 @@ export const WizardList: React.FC = () => {
           {user ? 'Вернуться в кабинет' : 'Вернуться ко входу'}
         </button>
 
-        <header className="mb-12 border-b-4 border-hogwarts-gold pb-6 bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-xl">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="relative mb-12">
+          <img
+            src={frameSvg}
+            alt="Frame"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
+          />
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-12 py-8">
             <div>
-                <h1 className="text-4xl text-hogwarts-red font-seminaria font-normal flex items-center gap-4">
+                <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
                     <User className="w-10 h-10" />
                     Список волшебников
                 </h1>
-                <p className="text-hogwarts-ink text-lg mt-2 font-serif">
+                <p className="text-white text-lg mt-2 font-century font-normal">
                     Все зарегистрированные участники
                 </p>
             </div>
@@ -76,7 +82,7 @@ export const WizardList: React.FC = () => {
                 />
             </div>
           </div>
-        </header>
+        </div>
 
         {isLoading ? (
           <div className="text-center py-12">
