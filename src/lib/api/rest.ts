@@ -30,6 +30,10 @@ export const restApi: ApiClient = {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       return data as User;
+    },
+    listAllUsers: async () => {
+        // Mock implementation or throw error if not needed for REST yet
+        throw new Error('Not implemented');
     }
   },
   logs: {
@@ -41,6 +45,10 @@ export const restApi: ApiClient = {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       return data as PracticeLog[];
+    },
+    listAll: async (skillName, status) => {
+       // Not implemented for REST yet
+       throw new Error('Not implemented');
     },
     create: async (log) => {
       const res = await fetch(`${API_URL}/logs`, {
@@ -62,6 +70,10 @@ export const restApi: ApiClient = {
         const data = await res.json();
         throw new Error(data.error);
       }
+    },
+    updateStatus: async (id, status) => {
+        // Not implemented
+        throw new Error('Not implemented');
     }
   }
 };

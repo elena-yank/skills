@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { GraduationCap, ArrowLeft, Loader2 } from 'lucide-react';
 import castleImg from '../assets/castle.png';
 
@@ -47,8 +47,14 @@ export const PublicProfile: React.FC = () => {
         // 3. Calculate progress
         const progressMap = new Map<string, number>();
         logsData?.forEach(log => {
-          const current = progressMap.get(log.skill_name) || 0;
-          progressMap.set(log.skill_name, current + 1);
+          // Only approved logs count for progress? 
+          // Prompt says "Текст появляется... но пока что не влияет на прогресс". 
+          // So pending shouldn't count.
+          // Since we are viewing public profile, maybe we should only count approved ones too.
+          if (log.status === 'approved') {
+              const current = progressMap.get(log.skill_name) || 0;
+              progressMap.set(log.skill_name, current + 1);
+          }
         });
 
         const calculatedSkills = DEFAULT_SKILLS.map(name => ({
@@ -146,7 +152,7 @@ export const PublicProfile: React.FC = () => {
                 className="bg-white p-6 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden cursor-pointer hover:shadow-xl transition-all transform hover:-translate-y-1"
                 >
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-magical text-hogwarts-blue font-serif">
+                    <h3 className="text-4xl font-seminaria font-normal text-hogwarts-blue">
                     {skill.name}
                     </h3>
                 </div>

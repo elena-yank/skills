@@ -1,16 +1,19 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 // Define our own simple User type
 export interface Wizard {
   id: string;
   name: string;
+  role: 'user' | 'admin';
 }
 
 export interface Skill {
   id: string;
   name: string;
   progress: number; // 0-100
+  pendingCount?: number;
+  approvedCount?: number;
 }
 
 interface AppState {
@@ -21,6 +24,7 @@ interface AppState {
   fetchSkills: () => Promise<void>;
   addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string) => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
+  updateLogStatus: (logId: string, status: 'approved' | 'rejected') => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -29,7 +33,10 @@ const DEFAULT_SKILLS = [
   "Невербальная магия",
   "Трансгрессия",
   "Анимагия",
-  "Мортимагия"
+  "Мортимагия",
+  "Телесный патронус",
+  "Магия пространства",
+  "Артефакторика"
 ];
 
 // Simple persistence key
@@ -64,23 +71,49 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      // Get all logs for the user
-      const data = await api.logs.list(user.id);
+      if (user.role === 'admin') {
+         // Admin logic
+         const data = await api.logs.listAll(); 
+         
+         const approvedMap = new Map<string, number>();
+         const pendingMap = new Map<string, number>();
+         
+         data?.forEach(log => {
+             if (log.status === 'approved') {
+                 approvedMap.set(log.skill_name, (approvedMap.get(log.skill_name) || 0) + 1);
+             } else if (log.status === 'pending') {
+                 pendingMap.set(log.skill_name, (pendingMap.get(log.skill_name) || 0) + 1);
+             }
+         });
+         
+         const updatedSkills = DEFAULT_SKILLS.map(name => ({
+             id: name,
+             name,
+             progress: 0, 
+             approvedCount: approvedMap.get(name) || 0,
+             pendingCount: pendingMap.get(name) || 0
+         }));
+         set({ skills: updatedSkills });
+      } else {
+         // Regular user logic
+         const data = await api.logs.list(user.id);
+         
+         const progressMap = new Map<string, number>();
+         data?.forEach(log => {
+             if (log.status === 'approved') {
+                const current = progressMap.get(log.skill_name) || 0;
+                progressMap.set(log.skill_name, current + 1);
+             }
+         });
 
-      // Calculate progress: 1 log = 1%
-      const progressMap = new Map<string, number>();
-      data?.forEach(log => {
-        const current = progressMap.get(log.skill_name) || 0;
-        progressMap.set(log.skill_name, current + 1);
-      });
+         const updatedSkills = DEFAULT_SKILLS.map(name => ({
+            id: name,
+            name,
+            progress: Math.min(progressMap.get(name) || 0, 100)
+         })).sort((a, b) => b.progress - a.progress);
 
-      const updatedSkills = DEFAULT_SKILLS.map(name => ({
-        id: name,
-        name,
-        progress: Math.min(progressMap.get(name) || 0, 100) // Cap at 100%
-      })).sort((a, b) => b.progress - a.progress);
-
-      set({ skills: updatedSkills });
+         set({ skills: updatedSkills });
+      }
     } catch (error) {
       console.error('Error fetching skills:', error);
     } finally {
@@ -120,6 +153,19 @@ export const useStore = create<AppState>((set, get) => ({
       console.error('Error deleting log:', error);
       throw error;
     }
+  },
+
+  updateLogStatus: async (logId: string, status: 'approved' | 'rejected') => {
+      const { user, fetchSkills } = get();
+      if (!user || user.role !== 'admin') return;
+
+      try {
+          await api.logs.updateStatus(logId, status);
+          await fetchSkills();
+      } catch (error) {
+          console.error('Error updating log status:', error);
+          throw error;
+      }
   },
 
   signOut: async () => {

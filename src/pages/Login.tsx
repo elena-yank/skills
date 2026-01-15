@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, Users } from 'lucide-react';
 import { useStore } from '../store';
 import castleImg from '../assets/castle.png';
 import parchmentImg from '../assets/parchment.png';
@@ -48,47 +48,18 @@ export const Login: React.FC = () => {
 
     try {
       if (isSignUp) {
-        // Check if wizard already exists
-        const { data: existingUser } = await supabase
-          .from('wizards')
-          .select('id')
-          .eq('name', username.trim())
-          .single();
-
-        if (existingUser) {
-          throw new Error('Такой волшебник уже числится в Хогвартсе.');
-        }
-
-        // Create new wizard
-        const { data, error } = await supabase
-          .from('wizards')
-          .insert({
-            name: username.trim(),
-            password: password // In a real app, hash this! But for Hogwarts, magic protects it.
-          })
-          .select()
-          .single();
+        // Sign Up
+        const user = await api.auth.signUp(username.trim(), password);
         
-        if (error) throw error;
-        
-        if (data) {
-            setUser(data);
+        if (user) {
+            setUser(user);
             navigate('/');
         }
       } else {
         // Sign In
-        const { data, error } = await supabase
-          .from('wizards')
-          .select('*')
-          .eq('name', username.trim())
-          .eq('password', password)
-          .single();
+        const user = await api.auth.signIn(username.trim(), password);
 
-        if (error || !data) {
-           throw new Error('Неверное имя или пароль');
-        }
-
-        setUser(data);
+        setUser(user);
         navigate('/');
       }
     } catch (err: any) {
@@ -104,7 +75,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-hogwarts-blue relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-hogwarts-blue relative overflow-y-auto py-10">
       {/* Background Image */}
       <div className="absolute inset-0 z-0">
          <img 
@@ -127,10 +98,9 @@ export const Login: React.FC = () => {
 
         <div className="relative z-10 px-4">
           <div className="text-center mb-6">
-            <h1 className="text-3xl text-hogwarts-red mb-2 !font-seminaria font-bold leading-tight whitespace-nowrap">
+            <h1 className="text-4xl text-hogwarts-red mb-2 !font-seminaria font-bold leading-tight whitespace-nowrap">
               Добро пожаловать!
             </h1>
-            <p className="text-hogwarts-ink italic text-sm">"Draco Dormiens Nunquam Titillandus"</p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-4">
@@ -141,25 +111,25 @@ export const Login: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-sm font-bold text-hogwarts-ink mb-1">Имя волшебника</label>
+            <label className="block text-sm font-bold text-hogwarts-ink mb-1 font-nexa uppercase">Имя волшебника</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-serif"
+              className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-century"
               placeholder="Луна Лавгуд"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Только русские буквы и пробелы</p>
+            <p className="text-xs text-gray-500 mt-1 font-century">Только русские буквы и пробелы</p>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-hogwarts-ink mb-1">Пароль</label>
+            <label className="block text-sm font-bold text-hogwarts-ink mb-1 font-nexa uppercase">Пароль</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-serif"
+              className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-nexa"
               placeholder="••••••••"
               required
             />
@@ -168,22 +138,32 @@ export const Login: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-hogwarts-red text-hogwarts-gold font-serif font-bold py-3 px-4 rounded border-2 border-hogwarts-gold hover:bg-red-900 transition-colors flex items-center justify-center gap-2 shadow-md uppercase tracking-wider"
+            className="w-full bg-hogwarts-red text-hogwarts-gold font-nexa font-bold py-3 px-4 rounded border-2 border-hogwarts-gold hover:bg-red-900 transition-colors flex items-center justify-center gap-2 shadow-md uppercase tracking-wider"
           >
             {isLoading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Зачислиться' : 'ВОЙТИ')}
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-4">
           <button
             onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError(null);
             }}
-            className="text-hogwarts-blue hover:text-hogwarts-red underline text-sm font-bold font-serif"
+            className="text-hogwarts-blue hover:text-hogwarts-red underline text-sm font-bold font-century block w-full"
           >
             {isSignUp ? 'Уже учитесь? Войти' : 'Впервые здесь? Стать участником'}
           </button>
+        </div>
+
+        <div className="absolute -bottom-16 left-0 right-0 flex justify-center z-20">
+           <button
+               onClick={() => navigate('/wizards')}
+               className="text-hogwarts-ink/50 hover:text-hogwarts-red text-xs font-bold font-century flex items-center gap-2 transition-colors"
+           >
+               <Users className="w-4 h-4" />
+               Список всех зарегистрированных волшебников
+           </button>
         </div>
       </div>
     </div>

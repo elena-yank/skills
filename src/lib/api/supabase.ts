@@ -41,12 +41,21 @@ export const supabaseApi: ApiClient = {
     getUserByName: async (name) => {
       const { data, error } = await supabase
         .from('wizards')
-        .select('id, name')
+        .select('id, name, role')
         .ilike('name', name)
         .single();
       
       if (error) return null;
       return data as User;
+    },
+    listAllUsers: async () => {
+        const { data, error } = await supabase
+            .from('wizards')
+            .select('id, name, role')
+            .order('name', { ascending: true });
+        
+        if (error) throw error;
+        return data as User[];
     }
   },
   logs: {
@@ -58,6 +67,22 @@ export const supabaseApi: ApiClient = {
 
       if (skillName) {
         query = query.eq('skill_name', skillName);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as PracticeLog[];
+    },
+    listAll: async (skillName, status) => {
+      let query = supabase
+        .from('practice_logs')
+        .select('*, wizards(name)');
+
+      if (skillName) {
+        query = query.eq('skill_name', skillName);
+      }
+      if (status) {
+        query = query.eq('status', status);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -80,6 +105,14 @@ export const supabaseApi: ApiClient = {
         .delete()
         .eq('id', id)
         .eq('user_id', userId);
+      
+      if (error) throw error;
+    },
+    updateStatus: async (id, status) => {
+      const { error } = await supabase
+        .from('practice_logs')
+        .update({ status })
+        .eq('id', id);
       
       if (error) throw error;
     }

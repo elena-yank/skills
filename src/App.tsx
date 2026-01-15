@@ -4,6 +4,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { SkillDetail } from './pages/SkillDetail';
 import { PublicProfile } from './pages/PublicProfile';
+import { WizardList } from './pages/WizardList';
 import { useStore } from './store';
 import { supabase } from './lib/supabase';
 
@@ -24,6 +25,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/u/:username" element={<PublicProfile />} />
         <Route path="/u/:username/skill/:skillName" element={<SkillDetail />} />
+        <Route path="/wizards" element={<WizardList />} />
         <Route
           path="/"
           element={
