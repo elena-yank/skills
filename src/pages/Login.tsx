@@ -16,8 +16,8 @@ export const Login: React.FC = () => {
   const { setUser } = useStore();
 
   const validateUsername = (name: string) => {
-    // Only Russian letters and spaces
-    const regex = /^[а-яА-ЯёЁ\s]+$/;
+    // Only Russian letters, spaces and dashes
+    const regex = /^[а-яА-ЯёЁ\s-]+$/;
     return regex.test(name);
   };
 
@@ -34,7 +34,7 @@ export const Login: React.FC = () => {
     }
 
     if (!validateUsername(username)) {
-      setError('Имя может содержать только русские буквы и пробелы. Никаких цифр или спецсимволов.');
+      setError('Имя должно содержать только кириллицу, пробелы и дефис');
       setIsLoading(false);
       return;
     }
@@ -120,7 +120,7 @@ export const Login: React.FC = () => {
               placeholder="Луна Лавгуд"
               required
             />
-            <p className="text-xs text-gray-500 mt-1 font-century">Только русские буквы и пробелы</p>
+            <p className="text-xs text-gray-500 mt-1 font-century">Только русские буквы, пробелы и "-"</p>
           </div>
 
           <div>

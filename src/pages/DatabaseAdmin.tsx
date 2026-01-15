@@ -1,20 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useStore } from '../store';
 import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-
-interface WizardUser {
-  id: string;
-  name: string;
-  password: string;
-  role: 'user' | 'admin';
-  created_at: string;
-}
+import { User } from '../lib/api/types';
 
 export const DatabaseAdmin: React.FC = () => {
   const { user } = useStore();
-  const [users, setUsers] = useState<WizardUser[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   
@@ -32,10 +25,26 @@ export const DatabaseAdmin: React.FC = () => {
   });
 
   // Edit password state
-  const [editingPassword, setEditingPassword] = useState<{ userId: string | null; newPassword: '' }>({
-    userId: null,
-    newPassword: ''
-  });
+  const [editingPassword, setEditingPassword] = useState<{ userId: string | null, newPassword: '' }>({ userId: null, newPassword: '' });
+  const [editingName, setEditingName] = useState<{ userId: string | null, newName: string }>({ userId: null, newName: '' });
+
+  const startEditingName = (user: User) => {
+    setEditingName({
+      userId: user.id,
+      newName: user.name
+    });
+  };
+
+  const saveName = async (userId: string) => {
+    try {
+      await api.admin?.updateUser(userId, { name: editingName.newName });
+      setUsers(users.map(u => u.id === userId ? { ...u, name: editingName.newName } : u));
+      setEditingName({ userId: null, newName: '' });
+    } catch (error) {
+      console.error('Error updating name:', error);
+      alert('Ошибка при обновлении имени. Возможно, такое имя уже занято.');
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -44,12 +53,7 @@ export const DatabaseAdmin: React.FC = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('wizards')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await api.admin?.listUsers();
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -59,7 +63,7 @@ export const DatabaseAdmin: React.FC = () => {
     }
   };
 
-  const confirmDeleteUser = (user: WizardUser) => {
+  const confirmDeleteUser = (user: User) => {
     setDeleteConfirmation({
       isOpen: true,
       userId: user.id,
@@ -71,12 +75,7 @@ export const DatabaseAdmin: React.FC = () => {
     if (!deleteConfirmation.userId) return;
     
     try {
-      const { error } = await supabase
-        .from('wizards')
-        .delete()
-        .eq('id', deleteConfirmation.userId);
-
-      if (error) throw error;
+      await api.admin?.deleteUser(deleteConfirmation.userId);
       setUsers(users.filter(u => u.id !== deleteConfirmation.userId));
       setDeleteConfirmation({ isOpen: false, userId: null, userName: '' });
     } catch (error) {
@@ -88,41 +87,31 @@ export const DatabaseAdmin: React.FC = () => {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data, error } = await supabase
-        .from('wizards')
-        .insert({
-          name: newUserName,
-          password: newUserPassword,
-          role: newUserRole
-        })
-        .select()
-        .single();
+      const data = await api.admin?.createUser({
+        name: newUserName,
+        password: newUserPassword,
+        role: newUserRole
+      });
 
-      if (error) throw error;
-
-      setUsers([data, ...users]);
-      setIsAddingUser(false);
-      setNewUserName('');
-      setNewUserPassword('');
-      setNewUserRole('user');
+      if (data) {
+        setUsers([data, ...users]);
+        setIsAddingUser(false);
+        setNewUserName('');
+        setNewUserPassword('');
+        setNewUserRole('user');
+      }
     } catch (error) {
       console.error('Error adding user:', error);
       alert('Ошибка при добавлении пользователя. Возможно, имя уже занято.');
     }
   };
 
-  const toggleRole = async (user: WizardUser) => {
+  const toggleRole = async (user: User) => {
     const newRole = user.role === 'admin' ? 'user' : 'admin';
     if (!window.confirm(`Изменить роль ${user.name} на ${newRole}?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('wizards')
-        .update({ role: newRole })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      
+      await api.admin?.updateUser(user.id, { role: newRole });
       setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
     } catch (error) {
       console.error('Error updating role:', error);
@@ -137,7 +126,7 @@ export const DatabaseAdmin: React.FC = () => {
     }));
   };
 
-  const startEditingPassword = (user: WizardUser) => {
+  const startEditingPassword = (user: User) => {
     setEditingPassword({
         userId: user.id,
         newPassword: '' // Start empty or with current password if preferred, empty is safer visually
@@ -153,13 +142,7 @@ export const DatabaseAdmin: React.FC = () => {
 
   const savePassword = async (userId: string) => {
       try {
-          const { error } = await supabase
-            .from('wizards')
-            .update({ password: editingPassword.newPassword })
-            .eq('id', userId);
-
-          if (error) throw error;
-
+          await api.admin?.updateUser(userId, { password: editingPassword.newPassword });
           setUsers(users.map(u => u.id === userId ? { ...u, password: editingPassword.newPassword as string } : u));
           setEditingPassword({ userId: null, newPassword: '' });
       } catch (error) {
@@ -273,6 +256,7 @@ export const DatabaseAdmin: React.FC = () => {
         )}
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -290,9 +274,42 @@ export const DatabaseAdmin: React.FC = () => {
                 </tr>
               ) : users.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{u.name}</div>
-                    <div className="text-xs text-gray-500">{u.id}</div>
+                  <td className="p-4 text-hogwarts-ink font-serif font-bold">
+                    {editingName.userId === u.id ? (
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={editingName.newName}
+                                onChange={(e) => setEditingName({ ...editingName, newName: e.target.value })}
+                                className="border border-hogwarts-gold rounded px-2 py-1 text-sm w-32 focus:outline-none focus:border-hogwarts-red font-serif"
+                            />
+                            <button
+                                onClick={() => saveName(u.id)}
+                                className="p-1 text-green-600 hover:text-green-800 transition-colors"
+                                title="Сохранить"
+                            >
+                                <Save className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setEditingName({ userId: null, newName: '' })}
+                                className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                title="Отмена"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between gap-4 group w-full max-w-xs">
+                            <span className="truncate" title={u.name}>{u.name}</span>
+                            <button
+                                onClick={() => startEditingName(u)}
+                                className="p-1 text-hogwarts-gold hover:text-hogwarts-red transition-colors shrink-0"
+                                title="Редактировать имя"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -364,6 +381,7 @@ export const DatabaseAdmin: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

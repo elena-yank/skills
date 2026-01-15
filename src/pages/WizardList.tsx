@@ -61,14 +61,16 @@ export const WizardList: React.FC = () => {
             className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
           />
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-12 py-8">
-            <div>
-                <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
-                    <User className="w-10 h-10" />
-                    Список волшебников
-                </h1>
-                <p className="text-white text-lg mt-2 font-century font-normal">
-                    Все зарегистрированные участники
-                </p>
+            <div className="flex items-center gap-4">
+                <User className="w-10 h-10 text-hogwarts-gold shrink-0" />
+                <div>
+                    <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal">
+                        Список волшебников
+                    </h1>
+                    <p className="text-white text-lg mt-2 font-century font-normal">
+                        Все зарегистрированные участники
+                    </p>
+                </div>
             </div>
             
             <div className="relative w-full md:w-auto">

@@ -78,6 +78,68 @@ app.get('/api/users/:name', async (req, res) => {
     }
 });
 
+// Admin: List Users
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM wizards ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Create User
+app.post('/api/admin/users', async (req, res) => {
+    const { name, password, role } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO wizards (name, password, role) VALUES ($1, $2, $3) RETURNING *',
+            [name, password, role]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Update User
+app.patch('/api/admin/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Build dynamic query
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return res.status(400).json({ error: 'No updates provided' });
+    
+    const setClause = keys.map((key, idx) => `${key} = $${idx + 2}`).join(', ');
+    const values = [id, ...Object.values(updates)];
+    
+    try {
+        const result = await pool.query(
+            `UPDATE wizards SET ${setClause} WHERE id = $1 RETURNING *`,
+            values
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Delete User
+app.delete('/api/admin/users/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM wizards WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Logs: Get Logs
 app.get('/api/logs', async (req, res) => {
   const { user_id, skill_name } = req.query;

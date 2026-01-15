@@ -33,7 +33,48 @@ export const restApi: ApiClient = {
     },
     listAllUsers: async () => {
         // Mock implementation or throw error if not needed for REST yet
-        throw new Error('Not implemented');
+        const res = await fetch(`${API_URL}/users`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        return data as User[];
+    }
+  },
+  admin: {
+    listUsers: async () => {
+      const res = await fetch(`${API_URL}/admin/users`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as User[];
+    },
+    createUser: async (user) => {
+      const res = await fetch(`${API_URL}/admin/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as User;
+    },
+    updateUser: async (id, updates) => {
+      const res = await fetch(`${API_URL}/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+    },
+    deleteUser: async (id) => {
+      const res = await fetch(`${API_URL}/admin/users/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
     }
   },
   logs: {

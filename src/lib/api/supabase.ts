@@ -58,6 +58,43 @@ export const supabaseApi: ApiClient = {
         return data as User[];
     }
   },
+  admin: {
+    listUsers: async () => {
+      const { data, error } = await supabase
+        .from('wizards')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as User[];
+    },
+    createUser: async (user) => {
+      const { data, error } = await supabase
+        .from('wizards')
+        .insert(user)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as User;
+    },
+    updateUser: async (id, updates) => {
+      const { error } = await supabase
+        .from('wizards')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    deleteUser: async (id) => {
+      const { error } = await supabase
+        .from('wizards')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    }
+  },
   logs: {
     list: async (userId, skillName) => {
       let query = supabase
