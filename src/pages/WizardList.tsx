@@ -18,7 +18,20 @@ export const WizardList: React.FC = () => {
     const fetchWizards = async () => {
       try {
         const data = await api.auth.listAllUsers();
-        setWizards(data || []);
+        if (data && data.length > 0) {
+            setWizards(data);
+        } else {
+            console.warn('No wizards found via api.auth.listAllUsers');
+            // Fallback to admin list if regular list fails (temporary fix)
+            if (user?.role === 'admin') {
+                try {
+                    const adminData = await api.admin?.listUsers();
+                    if (adminData) setWizards(adminData);
+                } catch (e) {
+                    console.error('Fallback admin fetch failed', e);
+                }
+            }
+        }
       } catch (error) {
         console.error('Error fetching wizards:', error);
       } finally {
@@ -27,7 +40,7 @@ export const WizardList: React.FC = () => {
     };
 
     fetchWizards();
-  }, []);
+  }, [user]);
 
   const filteredWizards = wizards.filter(wizard => 
     wizard.name.toLowerCase().includes(searchTerm.toLowerCase())

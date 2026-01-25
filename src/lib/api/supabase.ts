@@ -54,7 +54,10 @@ export const supabaseApi: ApiClient = {
             .select('id, name, role')
             .order('name', { ascending: true });
         
-        if (error) throw error;
+        if (error) {
+            console.error('Error fetching all users:', error);
+            throw error;
+        }
         return data as User[];
     }
   },
