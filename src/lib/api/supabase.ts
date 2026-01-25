@@ -51,7 +51,7 @@ export const supabaseApi: ApiClient = {
     listAllUsers: async () => {
         const { data, error } = await supabase
             .from('wizards')
-            .select('id, name, role')
+            .select('*')
             .order('name', { ascending: true });
         
         if (error) {
