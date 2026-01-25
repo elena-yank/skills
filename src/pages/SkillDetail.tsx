@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon } from 'lucide-react';
 import { useStore } from '../store';
@@ -196,6 +196,9 @@ const LogItem: React.FC<{
 
 export const SkillDetail: React.FC = () => {
   const { skillName, username } = useParams<{ skillName: string; username?: string }>();
+  const [searchParams] = useSearchParams();
+  const forcePersonalView = searchParams.get('view') === 'personal';
+  
   const [logs, setLogs] = useState<Log[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'pending' | 'approved'>('pending'); // For admin
@@ -203,7 +206,7 @@ export const SkillDetail: React.FC = () => {
   const { user, deletePracticeLog, updateLogStatus } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' && !forcePersonalView;
 
   useEffect(() => {
     const fetchLogs = async () => {

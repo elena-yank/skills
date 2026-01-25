@@ -31,7 +31,11 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleSkillClick = (skillName: string) => {
-    navigate(`/skill/${encodeURIComponent(skillName)}`);
+    if (isRealAdmin && !adminView) {
+      navigate(`/skill/${encodeURIComponent(skillName)}?view=personal`);
+    } else {
+      navigate(`/skill/${encodeURIComponent(skillName)}`);
+    }
   };
 
   const isRealAdmin = user?.role === 'admin';
