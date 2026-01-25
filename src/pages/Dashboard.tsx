@@ -186,6 +186,7 @@ export const Dashboard: React.FC = () => {
         skillName={selectedSkill || ''}
         isOpen={!!selectedSkill}
         onClose={() => setSelectedSkill(null)}
+        viewAsUser={!showAdminInterface}
       />
       </div>
     </div>

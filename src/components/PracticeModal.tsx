@@ -6,9 +6,10 @@ interface PracticeModalProps {
   skillName: string;
   isOpen: boolean;
   onClose: () => void;
+  viewAsUser?: boolean;
 }
 
-export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen, onClose }) => {
+export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen, onClose, viewAsUser }) => {
   const [content, setContent] = useState('');
   const [postLink, setPostLink] = useState('');
   const { addPracticeLog } = useStore();
@@ -24,7 +25,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
     
     setIsSubmitting(true);
     try {
-      await addPracticeLog(skillName, content, wordCount, postLink);
+      await addPracticeLog(skillName, content, wordCount, postLink, viewAsUser);
       setContent('');
       setPostLink('');
       onClose();

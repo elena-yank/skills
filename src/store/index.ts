@@ -22,7 +22,7 @@ interface AppState {
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
-  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string) => Promise<void>;
+  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string, viewAsUser?: boolean) => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
   updateLogStatus: (logId: string, status: 'approved' | 'rejected') => Promise<void>;
   signOut: () => Promise<void>;
@@ -121,7 +121,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPracticeLog: async (skillName, content, wordCount, postLink) => {
+  addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean) => {
     const { user, fetchSkills } = get();
     if (!user) return;
 
@@ -135,7 +135,7 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       // Refresh skills to update progress
-      await fetchSkills();
+      await fetchSkills(viewAsUser);
     } catch (error) {
       console.error('Error adding log:', error);
       throw error;
