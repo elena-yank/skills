@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { SKILL_CATEGORIES } from '../store';
 import { PracticeModal } from '../components/PracticeModal';
+import { SkillInfoModal } from '../components/SkillInfoModal';
+import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
 import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -11,6 +13,7 @@ import frameSvg from '../assets/frame.svg';
 export const Dashboard: React.FC = () => {
   const { user, skills, fetchSkills, signOut } = useStore();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+  const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const [adminView, setAdminView] = useState(true);
@@ -155,12 +158,26 @@ export const Dashboard: React.FC = () => {
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           <div className="flex justify-between items-center mb-2">
-                            <h3 
-                              onClick={() => handleSkillClick(skill.name)}
-                              className="text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
-                            >
-                              {skill.name}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <h3 
+                                onClick={() => handleSkillClick(skill.name)}
+                                className="text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
+                                >
+                                {skill.name}
+                                </h3>
+                                {SKILL_DESCRIPTIONS[skill.name] && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedSkillInfo(skill.name);
+                                        }}
+                                        className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
+                                        title="Информация о навыке"
+                                    >
+                                        <Info className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
                             {!showAdminInterface && (
                                 <button
                                 onClick={() => setSelectedSkill(skill.name)}
@@ -227,6 +244,13 @@ export const Dashboard: React.FC = () => {
         isOpen={!!selectedSkill}
         onClose={() => setSelectedSkill(null)}
         viewAsUser={!showAdminInterface}
+      />
+      
+      <SkillInfoModal
+        isOpen={!!selectedSkillInfo}
+        onClose={() => setSelectedSkillInfo(null)}
+        title={selectedSkillInfo || ''}
+        description={selectedSkillInfo ? SKILL_DESCRIPTIONS[selectedSkillInfo] : ''}
       />
       </div>
     </div>

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { SKILL_CATEGORIES } from '../store';
+import { SkillInfoModal } from '../components/SkillInfoModal';
+import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
@@ -18,6 +20,7 @@ const ALL_SKILLS = Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills)));
 export const PublicProfile: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -187,9 +190,23 @@ export const PublicProfile: React.FC = () => {
                                 style={{ backgroundImage: `url(${scrollImg})` }}
                                 >
                                 <div className="flex justify-between items-center mb-2">
-                                    <h3 className="text-2xl font-seminaria font-bold text-hogwarts-blue">
-                                        {skill.name}
-                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-2xl font-seminaria font-bold text-hogwarts-blue">
+                                            {skill.name}
+                                        </h3>
+                                        {SKILL_DESCRIPTIONS[skill.name] && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedSkillInfo(skill.name);
+                                                }}
+                                                className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
+                                                title="Информация о навыке"
+                                            >
+                                                <Info className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
@@ -216,6 +233,13 @@ export const PublicProfile: React.FC = () => {
             </div>
         </div>
       </div>
+      
+      <SkillInfoModal
+        isOpen={!!selectedSkillInfo}
+        onClose={() => setSelectedSkillInfo(null)}
+        title={selectedSkillInfo || ''}
+        description={selectedSkillInfo ? SKILL_DESCRIPTIONS[selectedSkillInfo] : ''}
+      />
     </div>
   );
 };
