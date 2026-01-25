@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { SKILL_CATEGORIES } from '../store';
 import { PracticeModal } from '../components/PracticeModal';
 import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
@@ -13,6 +14,16 @@ export const Dashboard: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const [adminView, setAdminView] = useState(true);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
+    SKILL_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.name]: true }), {})
+  );
+
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories(prev => ({
+        ...prev,
+        [categoryName]: !prev[categoryName]
+    }));
+  };
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -116,70 +127,95 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {skills.map((skill) => (
-            <div 
-              key={skill.id} 
-              className="p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-contain"
-              style={{ backgroundImage: `url(${scrollImg})` }}
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h3 
-                  onClick={() => handleSkillClick(skill.name)}
-                  className="text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
-                >
-                  {skill.name}
-                </h3>
-                {!showAdminInterface && (
-                    <button
-                    onClick={() => setSelectedSkill(skill.name)}
-                    className="p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
-                    title="Практиковать этот навык"
-                    >
-                    <Plus className="w-5 h-5" />
-                    </button>
-                )}
-              </div>
+        <div className="space-y-12">
+          {SKILL_CATEGORIES.map((category) => (
+            <div key={category.name} className="relative">
+              <button 
+                onClick={() => toggleCategory(category.name)}
+                className="w-full flex items-center gap-4 mb-6 group text-left"
+              >
+                 <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+                 <h2 className="text-3xl font-seminaria font-bold text-hogwarts-gold group-hover:text-yellow-400 transition-colors flex items-center gap-2">
+                    {category.name}
+                    {expandedCategories[category.name] ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                 </h2>
+                 <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+              </button>
 
-              {showAdminInterface ? (
-                  // Admin View: Numbers
-                  <div 
-                    className="flex items-center gap-6 cursor-pointer"
-                    onClick={() => handleSkillClick(skill.name)}
-                  >
-                      <div className="flex flex-col">
-                          <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">Одобрено</span>
-                          <span className="text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
-                      </div>
-                      <div className="flex flex-col">
-                          <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">На проверке</span>
-                          <span className="text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
-                      </div>
-                      <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                          <FileText className="w-6 h-6 text-hogwarts-blue" />
-                      </div>
-                  </div>
-              ) : (
-                  // User View: Progress Bar
-                  <>
-                    <div 
-                        className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden cursor-pointer"
-                        onClick={() => handleSkillClick(skill.name)}
-                    >
-                        <div
-                        className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
-                        style={{ width: `${skill.progress}%` }}
+              {expandedCategories[category.name] && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
+                  {category.skills.map((skillName) => {
+                     const skill = skills.find(s => s.name === skillName);
+                     if (!skill) return null;
+                     
+                     return (
+                        <div 
+                          key={`${category.name}-${skill.id}`} 
+                          className="p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-contain"
+                          style={{ backgroundImage: `url(${scrollImg})` }}
                         >
-                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 
+                              onClick={() => handleSkillClick(skill.name)}
+                              className="text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
+                            >
+                              {skill.name}
+                            </h3>
+                            {!showAdminInterface && (
+                                <button
+                                onClick={() => setSelectedSkill(skill.name)}
+                                className="p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
+                                title="Практиковать этот навык"
+                                >
+                                <Plus className="w-5 h-5" />
+                                </button>
+                            )}
+                          </div>
+
+                          {showAdminInterface ? (
+                              // Admin View: Numbers
+                              <div 
+                                className="flex items-center gap-6 cursor-pointer"
+                                onClick={() => handleSkillClick(skill.name)}
+                              >
+                                  <div className="flex flex-col">
+                                      <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">Одобрено</span>
+                                      <span className="text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                      <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">На проверке</span>
+                                      <span className="text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
+                                  </div>
+                                  <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <FileText className="w-6 h-6 text-hogwarts-blue" />
+                                  </div>
+                              </div>
+                          ) : (
+                              // User View: Progress Bar
+                              <>
+                                <div 
+                                    className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden cursor-pointer"
+                                    onClick={() => handleSkillClick(skill.name)}
+                                >
+                                    <div
+                                    className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
+                                    style={{ width: `${skill.progress}%` }}
+                                    >
+                                    <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
+                                    <span>Новичок</span>
+                                    <span>{skill.progress}% Мастерства</span>
+                                    <span>Магистр</span>
+                                </div>
+                              </>
+                          )}
                         </div>
-                    </div>
-                    
-                    <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
-                        <span>Новичок</span>
-                        <span>{skill.progress}% Мастерства</span>
-                        <span>Магистр</span>
-                    </div>
-                  </>
+                     );
+                  })}
+                </div>
               )}
             </div>
           ))}

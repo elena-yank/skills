@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { GraduationCap, ArrowLeft, Loader2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { SKILL_CATEGORIES } from '../store';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
@@ -12,16 +13,7 @@ interface Skill {
   progress: number;
 }
 
-const DEFAULT_SKILLS = [
-  "Беспалочковая магия",
-  "Невербальная магия",
-  "Трансгрессия",
-  "Анимагия",
-  "Мортимагия",
-  "Телесный патронус",
-  "Магия пространства",
-  "Артефакторика"
-];
+const ALL_SKILLS = Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills)));
 
 export const PublicProfile: React.FC = () => {
   const { username } = useParams<{ username: string }>();
@@ -29,6 +21,16 @@ export const PublicProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
+    SKILL_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.name]: true }), {})
+  );
+
+  const toggleCategory = (categoryName: string) => {
+    setExpandedCategories(prev => ({
+        ...prev,
+        [categoryName]: !prev[categoryName]
+    }));
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -62,11 +64,11 @@ export const PublicProfile: React.FC = () => {
           }
         });
 
-        const calculatedSkills = DEFAULT_SKILLS.map(name => ({
+        const calculatedSkills = ALL_SKILLS.map(name => ({
           id: name,
           name,
           progress: Math.min(progressMap.get(name) || 0, 100)
-        })).sort((a, b) => b.progress - a.progress);
+        }));
 
         setSkills(calculatedSkills);
       } catch (err: any) {
@@ -156,34 +158,59 @@ export const PublicProfile: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {skills.map((skill) => (
-                <div 
-                  key={skill.id} 
-                  onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
-                  className="p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-contain cursor-pointer"
-                  style={{ backgroundImage: `url(${scrollImg})` }}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-2xl font-seminaria font-bold text-hogwarts-blue">
-                        {skill.name}
-                      </h3>
-                  </div>
+            <div className="space-y-12">
+            {SKILL_CATEGORIES.map((category) => (
+                <div key={category.name} className="relative">
+                    <button 
+                        onClick={() => toggleCategory(category.name)}
+                        className="w-full flex items-center gap-4 mb-6 group text-left"
+                    >
+                        <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+                        <h2 className="text-3xl font-seminaria font-bold text-hogwarts-gold group-hover:text-yellow-400 transition-colors flex items-center gap-2">
+                            {category.name}
+                            {expandedCategories[category.name] ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                        </h2>
+                        <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+                    </button>
 
-                  <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
-                        style={{ width: `${skill.progress}%` }}
-                      >
-                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
-                      </div>
-                  </div>
-                  
-                  <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
-                      <span>Новичок</span>
-                      <span>{skill.progress}% Мастерства</span>
-                      <span>Магистр</span>
-                  </div>
+                    {expandedCategories[category.name] && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
+                        {category.skills.map((skillName) => {
+                            const skill = skills.find(s => s.name === skillName);
+                            if (!skill) return null;
+                            
+                            return (
+                                <div 
+                                key={`${category.name}-${skill.id}`} 
+                                onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
+                                className="p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-contain cursor-pointer"
+                                style={{ backgroundImage: `url(${scrollImg})` }}
+                                >
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-2xl font-seminaria font-bold text-hogwarts-blue">
+                                        {skill.name}
+                                    </h3>
+                                </div>
+
+                                <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
+                                        style={{ width: `${skill.progress}%` }}
+                                    >
+                                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
+                                    <span>Новичок</span>
+                                    <span>{skill.progress}% Мастерства</span>
+                                    <span>Магистр</span>
+                                </div>
+                                </div>
+                            );
+                        })}
+                        </div>
+                    )}
                 </div>
             ))}
             </div>
