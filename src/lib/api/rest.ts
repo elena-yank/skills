@@ -32,7 +32,6 @@ export const restApi: ApiClient = {
       return data as User;
     },
     listAllUsers: async () => {
-        // Mock implementation or throw error if not needed for REST yet
         const res = await fetch(`${API_URL}/users`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
@@ -88,8 +87,14 @@ export const restApi: ApiClient = {
       return data as PracticeLog[];
     },
     listAll: async (skillName, status) => {
-       // Not implemented for REST yet
-       throw new Error('Not implemented');
+       const params = new URLSearchParams();
+       if (skillName) params.append('skill_name', skillName);
+       if (status) params.append('status', status);
+
+       const res = await fetch(`${API_URL}/admin/logs?${params}`);
+       const data = await res.json();
+       if (!res.ok) throw new Error(data.error);
+       return data as PracticeLog[];
     },
     create: async (log) => {
       const res = await fetch(`${API_URL}/logs`, {
@@ -113,8 +118,15 @@ export const restApi: ApiClient = {
       }
     },
     updateStatus: async (id, status) => {
-        // Not implemented
-        throw new Error('Not implemented');
+        const res = await fetch(`${API_URL}/logs/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error);
+        }
     }
   }
 };

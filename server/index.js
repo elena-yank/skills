@@ -69,12 +69,23 @@ app.get('/api/users/:name', async (req, res) => {
       const name = req.params.name.replace(/_/g, ' '); // Decode URL friendly name
       const result = await pool.query('SELECT id, name FROM wizards WHERE name ILIKE $1', [name]);
       if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Wizard not found' });
-      }
-      res.json(result.rows[0]);
+      return res.status(404).json({ error: 'Wizard not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Auth: List All Users (Public)
+app.get('/api/users', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, role FROM wizards ORDER BY name ASC');
+        res.json(result.rows);
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Internal server error' });
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -162,6 +173,46 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+// Logs: Get All Logs (Admin)
+app.get('/api/admin/logs', async (req, res) => {
+    const { skill_name, status } = req.query;
+    try {
+        let query = `
+            SELECT pl.*, w.name as wizard_name 
+            FROM practice_logs pl
+            JOIN wizards w ON pl.user_id = w.id
+            WHERE 1=1
+        `;
+        const params = [];
+        let paramIdx = 1;
+
+        if (skill_name) {
+            query += ` AND pl.skill_name = $${paramIdx++}`;
+            params.push(skill_name);
+        }
+
+        if (status) {
+            query += ` AND pl.status = $${paramIdx++}`;
+            params.push(status);
+        }
+
+        query += ' ORDER BY pl.created_at DESC';
+
+        const result = await pool.query(query, params);
+        
+        // Format result to match expected frontend structure (nested wizard object)
+        const formattedRows = result.rows.map(row => ({
+            ...row,
+            wizards: { name: row.wizard_name }
+        }));
+        
+        res.json(formattedRows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Logs: Create Log
 app.post('/api/logs', async (req, res) => {
   const { user_id, skill_name, content, word_count, post_link } = req.body;
@@ -199,6 +250,32 @@ app.delete('/api/logs/:id', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Logs: Update Status (Admin)
+app.patch('/api/logs/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    try {
+        const result = await pool.query(
+            'UPDATE practice_logs SET status = $1 WHERE id = $2 RETURNING *',
+            [status, id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Log not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Serve Static Files (Frontend)
