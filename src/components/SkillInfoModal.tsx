@@ -70,10 +70,10 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
         {/* Content */}
         <div className="p-8 overflow-y-auto custom-scrollbar">
           <div className="prose prose-stone max-w-none">
-            {description.split('\n\n').map((paragraph, index) => (
+            {description.split(/\n\s*\n/).map((paragraph, index) => (
               <p 
                 key={index} 
-                className="mb-4 text-lg font-serif leading-relaxed text-hogwarts-ink last:mb-0"
+                className="mb-6 text-lg font-serif leading-relaxed text-hogwarts-ink last:mb-0"
               >
                 {paragraph}
               </p>
