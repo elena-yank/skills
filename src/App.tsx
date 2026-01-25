@@ -7,7 +7,6 @@ import { PublicProfile } from './pages/PublicProfile';
 import { WizardList } from './pages/WizardList';
 import { DatabaseAdmin } from './pages/DatabaseAdmin';
 import { useStore } from './store';
-import { supabase } from './lib/supabase';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useStore();
