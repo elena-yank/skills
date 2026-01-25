@@ -8,8 +8,8 @@ COPY package*.json ./
 COPY server/package*.json ./server/
 
 # Install dependencies for both frontend and backend
-RUN npm ci
-RUN cd server && npm ci
+RUN npm install
+RUN cd server && npm install
 
 # Copy source code
 COPY . .
@@ -30,7 +30,7 @@ COPY --from=builder /app/dist ./dist
 
 # Install only production dependencies for server
 WORKDIR /app/server
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Environment variables
 ENV PORT=3000
