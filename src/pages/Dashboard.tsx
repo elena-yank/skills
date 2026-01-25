@@ -12,10 +12,15 @@ export const Dashboard: React.FC = () => {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
+  const [adminView, setAdminView] = useState(true);
 
   useEffect(() => {
-    fetchSkills();
-  }, [fetchSkills]);
+    if (user?.role === 'admin') {
+      fetchSkills(!adminView);
+    } else {
+      fetchSkills();
+    }
+  }, [fetchSkills, adminView, user?.role]);
 
   const handleCopyLink = () => {
     const safeName = user?.name.replace(/\s+/g, '_');
@@ -29,7 +34,8 @@ export const Dashboard: React.FC = () => {
     navigate(`/skill/${encodeURIComponent(skillName)}`);
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isRealAdmin = user?.role === 'admin';
+  const showAdminInterface = isRealAdmin && adminView;
 
   return (
     <div className="min-h-screen relative">
@@ -70,12 +76,22 @@ export const Dashboard: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-4xl text-hogwarts-gold font-seminaria font-bold">
-                    {isAdmin ? 'Информация о навыках' : 'Личный кабинет'}
+                    {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
                 </h2>
-                <p className="text-white text-lg font-century font-normal">
-                  Добро пожаловать, {user?.name || 'Волшебник'}
-                </p>
-                {!isAdmin && (
+                <div className="flex items-center gap-4">
+                  <p className="text-white text-lg font-century font-normal">
+                    Добро пожаловать, {user?.name || 'Волшебник'}
+                  </p>
+                  {isRealAdmin && (
+                    <button
+                      onClick={() => setAdminView(!adminView)}
+                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-sm"
+                    >
+                      {adminView ? 'Мои навыки' : 'Панель администратора'}
+                    </button>
+                  )}
+                </div>
+                {!showAdminInterface && (
                   <button 
                       onClick={handleCopyLink}
                       className="text-xs flex items-center gap-1 text-white hover:text-hogwarts-gold mt-1 font-nexa underline uppercase"
@@ -110,7 +126,7 @@ export const Dashboard: React.FC = () => {
                 >
                   {skill.name}
                 </h3>
-                {!isAdmin && (
+                {!showAdminInterface && (
                     <button
                     onClick={() => setSelectedSkill(skill.name)}
                     className="p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
@@ -121,7 +137,7 @@ export const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {isAdmin ? (
+              {showAdminInterface ? (
                   // Admin View: Numbers
                   <div 
                     className="flex items-center gap-6 cursor-pointer"

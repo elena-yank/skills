@@ -21,7 +21,7 @@ interface AppState {
   skills: Skill[];
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
-  fetchSkills: () => Promise<void>;
+  fetchSkills: (viewAsUser?: boolean) => Promise<void>;
   addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string) => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
   updateLogStatus: (logId: string, status: 'approved' | 'rejected') => Promise<void>;
@@ -65,13 +65,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ user });
   },
 
-  fetchSkills: async () => {
+  fetchSkills: async (viewAsUser?: boolean) => {
     const { user } = get();
     if (!user) return;
 
     set({ isLoading: true });
     try {
-      if (user.role === 'admin') {
+      if (user.role === 'admin' && !viewAsUser) {
          // Admin logic
          const data = await api.logs.listAll(); 
          
