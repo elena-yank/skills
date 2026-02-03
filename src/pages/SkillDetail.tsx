@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap } from 'lucide-react';
 import { useStore } from '../store';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import { PracticeLog } from '../lib/api/types';
+import transgressionSvg from '../assets/transgression.svg';
+import patronusGoldSvg from '../assets/patronus_gold.svg';
+import nonverbalGoldSvg from '../assets/nonverbal-gold.svg';
+import nowandGoldSvg from '../assets/nowand-gold.svg';
+import mortGoldSvg from '../assets/mort-gold.svg';
+import animaGoldSvg from '../assets/anima-gold.svg';
+import artifactsGoldSvg from '../assets/artifacts-gold.svg';
+import spaceSvg from '../assets/space.svg';
 
 interface Log extends PracticeLog {
   // PracticeLog already has status and wizards from my update to types.ts
@@ -15,7 +23,7 @@ const LogItem: React.FC<{
     log: Log; 
     onDelete: (id: string) => void; 
     isOwner: boolean;
-    onUpdateStatus: (id: string, status: 'approved' | 'rejected') => void;
+    onUpdateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed') => void;
 }> = ({ log, onDelete, isOwner, onUpdateStatus }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -43,7 +51,7 @@ const LogItem: React.FC<{
       {!isAdmin && log.status === 'pending' && (
           <div className="absolute inset-0 bg-white/60 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
              <div className="bg-[#D3A625] text-hogwarts-red px-6 py-3 rounded-lg shadow-xl font-magical font-bold text-xl border-2 border-hogwarts-red pointer-events-auto z-40 opacity-100">
-                Текст ожидает проверку
+                {log.type === 'exam' ? 'Экзаменационная работа ожидает проверки' : 'Текст ожидает проверку'}
              </div>
           </div>
       )}
@@ -82,6 +90,11 @@ const LogItem: React.FC<{
       <div className="flex justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-10">
         <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
+            {log.type === 'exam' && (
+                <span className="bg-hogwarts-purple text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
+                    Экзамен
+                </span>
+            )}
             <Calendar className="w-4 h-4" />
             {new Date(log.created_at).toLocaleDateString('ru-RU', {
                 year: 'numeric',
@@ -105,13 +118,31 @@ const LogItem: React.FC<{
             </div>
             {isAdmin && log.wizards?.name && (
                 <div className="flex items-center gap-2 text-hogwarts-purple font-magical text-lg">
-                    <UserIcon className="w-4 h-4" />
+                    {log.wizards.avatar_url ? (
+                        <img 
+                            src={log.wizards.avatar_url} 
+                            alt={log.wizards.name} 
+                            className="w-8 h-8 rounded-full border border-hogwarts-gold object-cover"
+                        />
+                    ) : (
+                        <UserIcon className="w-4 h-4" />
+                    )}
                     {log.wizards.name}
                 </div>
             )}
         </div>
         
         <div className="flex items-center gap-4">
+            {log.type === 'application' && (
+                <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
+                    Заявка на освоение
+                </div>
+            )}
+            {log.type === 'exam' && (
+                <div className="bg-hogwarts-purple/10 text-hogwarts-purple px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-purple/30 font-serif">
+                    Экзамен
+                </div>
+            )}
             <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
             {log.word_count} слов
             </div>
@@ -173,15 +204,31 @@ const LogItem: React.FC<{
                 <button
                     onClick={() => onUpdateStatus(log.id, 'approved')}
                     className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                    title="Принять: Добавить в историю (без прогресса если это экзамен)"
                 >
                     <Check className="w-4 h-4" />
-                    Одобрить
+                    Принять
                 </button>
+                {log.type === 'exam' && (
+                    <button
+                        onClick={() => onUpdateStatus(log.id, 'exam_passed')}
+                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                        title="Экзамен сдан: Прогресс станет 100%"
+                    >
+                        <GraduationCap className="w-4 h-4" />
+                        Экзамен сдан
+                    </button>
+                )}
             </div>
         )}
          {isAdmin && log.status === 'approved' && (
             <div className="text-hogwarts-green font-bold flex items-center gap-2 px-4 py-2">
                 <Check className="w-5 h-5" /> Одобрено
+            </div>
+        )}
+         {isAdmin && log.status === 'exam_passed' && (
+            <div className="text-[#006633] font-bold flex items-center gap-2 px-4 py-2">
+                <GraduationCap className="w-5 h-5" /> Экзамен сдан
             </div>
         )}
          {isAdmin && log.status === 'rejected' && (
@@ -205,8 +252,13 @@ export const SkillDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user, deletePracticeLog, updateLogStatus } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [applicationLog, setApplicationLog] = useState<Log | null>(null);
 
-  const isAdmin = user?.role === 'admin' && !forcePersonalView;
+  // If username is present, we are viewing a specific user's history (Public Profile mode),
+  // so we should NOT show the global admin dashboard even if the user is an admin.
+  const isAdmin = user?.role === 'admin' && !forcePersonalView && !username;
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -222,6 +274,7 @@ export const SkillDetail: React.FC = () => {
              // Prompt says: "Есть также кнопка 'Уже одобренные', где она может посмотреть в принципе все посты всех пользователей, которые были одобрены"
              const status = viewMode === 'pending' ? 'pending' : 'approved';
              const data = await api.logs.listAll(decodeURIComponent(skillName), status);
+             // Admin needs to see application logs in the list (especially pending)
              setLogs(data || []);
         } else {
             // User fetching logs
@@ -243,7 +296,20 @@ export const SkillDetail: React.FC = () => {
             setTargetUserId(userIdToFetch);
 
             const data = await api.logs.list(userIdToFetch, decodeURIComponent(skillName));
-            setLogs(data || []);
+            
+            // Find application log for user
+            if (data) {
+                const appLogs = data.filter(l => l.type === 'application');
+                // Sort by date desc to get latest to show the relevant one
+                appLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                
+                if (appLogs.length > 0) {
+                    setApplicationLog(appLogs[0]);
+                }
+            }
+            
+            // Filter out application logs for user view (displayed separately if needed)
+            setLogs(data?.filter(l => l.type !== 'application') || []);
         }
       } catch (error) {
         console.error('Error fetching logs:', error);
@@ -280,6 +346,12 @@ export const SkillDetail: React.FC = () => {
   const decodedSkillName = decodeURIComponent(skillName || '');
   const isOwner = user?.id === targetUserId;
 
+  const sortedLogs = [...logs].sort((a, b) => {
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+
   return (
     <div className="min-h-screen relative">
       {/* Background Image */}
@@ -307,15 +379,76 @@ export const SkillDetail: React.FC = () => {
             alt="Frame"
             className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
           />
-          <div className="relative z-10 flex justify-between items-start px-12 py-8">
+          <div className={`relative z-10 flex justify-between px-12 py-8 ${isAdmin ? 'items-start' : 'items-end'}`}>
             <div>
                 <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
-                    <Feather className="w-12 h-12 shrink-0" />
+                    {decodedSkillName === 'Трансгрессия' ? (
+                        <img 
+                            src={transgressionSvg} 
+                            alt="Transgression" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Телесный патронус' ? (
+                        <img 
+                            src={patronusGoldSvg} 
+                            alt="Patronus" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Невербальная магия' ? (
+                        <img 
+                            src={nonverbalGoldSvg} 
+                            alt="Non-verbal Magic" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Беспалочковая магия' ? (
+                        <img 
+                            src={nowandGoldSvg} 
+                            alt="Wandless Magic" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Мортимагия' ? (
+                        <img 
+                            src={mortGoldSvg} 
+                            alt="Mortimagic" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Анимагия' ? (
+                        <img 
+                            src={animaGoldSvg} 
+                            alt="Animagus" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Артефакторика' ? (
+                        <img 
+                            src={artifactsGoldSvg} 
+                            alt="Artifacts" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Магия пространства' ? (
+                        <img 
+                            src={spaceSvg} 
+                            alt="Space Magic" 
+                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : (
+                        <Feather className="w-12 h-12 shrink-0" />
+                    )}
                     <div className="flex flex-col">
                         <span>{decodedSkillName}</span>
-                        <span className="text-white text-lg font-century mt-1">
-                            {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
-                        </span>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-white text-lg font-century">
+                                {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
+                            </span>
+                            {!isAdmin && (
+                                <button
+                                    onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                                    className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-hogwarts-gold hover:text-white"
+                                    title={sortOrder === 'desc' ? "Сначала новые" : "Сначала старые"}
+                                >
+                                    {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </h1>
             </div>
@@ -327,8 +460,51 @@ export const SkillDetail: React.FC = () => {
                     {viewMode === 'pending' ? 'Уже одобренные' : 'На проверку'}
                 </button>
             )}
+            {!isAdmin && applicationLog && (
+                <button
+                    onClick={() => setShowApplicationModal(true)}
+                    className="flex items-center gap-2 text-hogwarts-gold hover:text-white transition-colors font-century text-lg"
+                >
+                    <Scroll className="w-4 h-4" />
+                    Просмотреть заявку
+                </button>
+            )}
           </div>
         </div>
+
+        {/* Application Modal Popup */}
+        {showApplicationModal && applicationLog && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-hogwarts-parchment w-full max-w-2xl rounded-lg shadow-2xl border-4 border-hogwarts-gold relative flex flex-col max-h-[90vh]">
+                    <div className="p-6 border-b-2 border-hogwarts-bronze flex justify-between items-center bg-hogwarts-parchment rounded-t-lg">
+                        <h2 className="text-2xl font-seminaria text-hogwarts-red flex items-center gap-2 font-bold">
+                            <Feather className="w-6 h-6" />
+                            Заявка на навык
+                        </h2>
+                        <button onClick={() => setShowApplicationModal(false)} className="text-hogwarts-ink hover:text-hogwarts-red">
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
+                    <div className="p-8 overflow-auto">
+                        <div className="prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif">
+                             <p className="whitespace-pre-wrap">{applicationLog.content}</p>
+                        </div>
+                        <div className="mt-6 flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                            Статус: 
+                            <span className={`
+                                ${applicationLog.status === 'approved' ? 'text-hogwarts-green' : ''}
+                                ${applicationLog.status === 'pending' ? 'text-hogwarts-gold' : ''}
+                                ${applicationLog.status === 'rejected' ? 'text-hogwarts-red' : ''}
+                            `}>
+                                {applicationLog.status === 'approved' && 'Одобрено'}
+                                {applicationLog.status === 'pending' && 'На рассмотрении'}
+                                {applicationLog.status === 'rejected' && 'Отклонено'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {isLoading ? (
           <div className="text-center py-12">
@@ -349,7 +525,7 @@ export const SkillDetail: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {logs.map((log) => (
+            {sortedLogs.map((log) => (
               <LogItem 
                 key={log.id} 
                 log={log} 

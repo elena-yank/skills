@@ -1,5 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import transgressionSvg from '../assets/transgression.svg';
+import patronusSvg from '../assets/patronus.svg';
+import nonverbalRedSvg from '../assets/nonverbal-red.svg';
+import nowandRedSvg from '../assets/nowand-red.svg';
+import mortRedSvg from '../assets/mort-red.svg';
+import animaRedSvg from '../assets/anima-red.svg';
+import artifactsRedSvg from '../assets/artifacts-red.svg';
+import spaceSvg from '../assets/space.svg';
 
 interface SkillInfoModalProps {
   isOpen: boolean;
@@ -56,9 +64,67 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-hogwarts-gold/30 bg-[#F5E6D3]">
-          <h2 className="text-3xl font-seminaria font-bold text-hogwarts-blue">
-            {title}
-          </h2>
+          <div className="flex items-center gap-4">
+            {title === 'Трансгрессия' && (
+                <img 
+                    src={transgressionSvg} 
+                    alt="Transgression" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Телесный патронус' && (
+                <img 
+                    src={patronusSvg} 
+                    alt="Patronus" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Невербальная магия' && (
+                <img 
+                    src={nonverbalRedSvg} 
+                    alt="Non-verbal Magic" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Беспалочковая магия' && (
+                <img 
+                    src={nowandRedSvg} 
+                    alt="Wandless Magic" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Мортимагия' && (
+                <img 
+                    src={mortRedSvg} 
+                    alt="Mortimagic" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Анимагия' && (
+                <img 
+                    src={animaRedSvg} 
+                    alt="Animagus" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Артефакторика' && (
+                <img 
+                    src={artifactsRedSvg} 
+                    alt="Artifacts" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Магия пространства' && (
+                <img 
+                    src={spaceSvg} 
+                    alt="Space Magic" 
+                    className="w-16 h-16 object-cover object-right select-none"
+                />
+            )}
+            <h2 className="text-3xl font-seminaria font-bold text-hogwarts-blue">
+              {title}
+            </h2>
+          </div>
           <button
             onClick={onClose}
             className="p-2 text-hogwarts-ink/60 hover:text-hogwarts-red transition-colors rounded-full hover:bg-black/5"
@@ -73,7 +139,7 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
             {description.split(/\n\s*\n/).map((paragraph, index) => (
               <p 
                 key={index} 
-                className="mb-6 text-lg font-serif leading-relaxed text-hogwarts-ink last:mb-0"
+                className="mb-6 text-lg font-century leading-relaxed text-hogwarts-ink last:mb-0 text-justify"
               >
                 {paragraph}
               </p>

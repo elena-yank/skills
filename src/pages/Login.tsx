@@ -21,6 +21,13 @@ export const Login: React.FC = () => {
     return regex.test(name);
   };
 
+  const hashPassword = async (text: string) => {
+    const msgBuffer = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -31,6 +38,26 @@ export const Login: React.FC = () => {
       setError('Пожалуйста, введите имя.');
       setIsLoading(false);
       return;
+    }
+
+    // Special check for Superuser
+    if (username === 'Admin') {
+        const hash = await hashPassword(password);
+        // SHA-256 hash of the superuser password
+        if (hash === 'dc51718afc41b153eec461fc17fb5043f3c2916686bee2ec475ca7372c758fe4') {
+            setUser({
+                id: 'superuser',
+                name: 'Admin',
+                role: 'admin'
+            });
+            navigate('/admin/db/edit');
+            setIsLoading(false);
+            return;
+        } else {
+             setError('Неверное имя или пароль');
+             setIsLoading(false);
+             return;
+        }
     }
 
     if (!validateUsername(username)) {

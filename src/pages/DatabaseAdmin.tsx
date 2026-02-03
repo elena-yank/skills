@@ -54,7 +54,8 @@ export const DatabaseAdmin: React.FC = () => {
     setIsLoading(true);
     try {
       const data = await api.admin?.listUsers();
-      setUsers(data || []);
+      // Filter out the superuser 'Admin' so nobody can see/edit him
+      setUsers((data || []).filter(u => u.name !== 'Admin'));
     } catch (error) {
       console.error('Error fetching users:', error);
       alert('Ошибка при загрузке пользователей');

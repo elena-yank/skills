@@ -4,6 +4,7 @@ export interface User {
   role: 'user' | 'admin';
   created_at?: string; // Optional for list display
   password?: string; // Only for admin display/edit, be careful
+  avatar_url?: string;
 }
 
 export interface PracticeLog {
@@ -14,8 +15,9 @@ export interface PracticeLog {
   word_count: number;
   post_link?: string;
   created_at: string;
-  status: 'pending' | 'approved' | 'rejected';
-  wizards?: { name: string }; // Joined user data
+  status: 'pending' | 'approved' | 'rejected' | 'exam_passed';
+  type?: 'practice' | 'exam' | 'application';
+  wizards?: { name: string; avatar_url?: string }; // Joined user data
 }
 
 export interface ApiClient {
@@ -24,6 +26,9 @@ export interface ApiClient {
     signIn: (name: string, pass: string) => Promise<User>;
     getUserByName: (name: string) => Promise<User | null>;
     listAllUsers: () => Promise<User[]>;
+  };
+  users: {
+    updateAvatar: (id: string, avatarUrl: string) => Promise<User>;
   };
   admin: {
     listUsers: () => Promise<User[]>;
@@ -36,6 +41,6 @@ export interface ApiClient {
     listAll: (skillName?: string, status?: string) => Promise<PracticeLog[]>; // For admin
     create: (log: Omit<PracticeLog, 'id' | 'created_at' | 'status'>) => Promise<PracticeLog>;
     delete: (id: string, userId: string) => Promise<void>;
-    updateStatus: (id: string, status: 'approved' | 'rejected') => Promise<void>;
+    updateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed') => Promise<void>;
   };
 }

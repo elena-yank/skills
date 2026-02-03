@@ -6,6 +6,7 @@ import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import { User as UserType } from '../lib/api/types';
 import { useStore } from '../store';
+import { ImageModal } from '../components/ImageModal';
 
 export const WizardList: React.FC = () => {
   const [wizards, setWizards] = useState<UserType[]>([]);
@@ -13,6 +14,7 @@ export const WizardList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { user } = useStore();
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWizards = async () => {
@@ -42,9 +44,11 @@ export const WizardList: React.FC = () => {
     fetchWizards();
   }, [user]);
 
-  const filteredWizards = wizards.filter(wizard => 
-    wizard.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredWizards = wizards
+    .filter(wizard => wizard.name !== 'Admin')
+    .filter(wizard => 
+      wizard.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   return (
     <div className="min-h-screen relative">
@@ -93,7 +97,7 @@ export const WizardList: React.FC = () => {
                     placeholder="Найти волшебника..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border-2 border-hogwarts-bronze rounded-lg focus:outline-none focus:border-hogwarts-gold font-serif w-full md:w-64 bg-white/80"
+                    className="pl-10 pr-4 py-2 border-2 border-hogwarts-bronze rounded-lg focus:outline-none focus:border-hogwarts-gold font-century w-full md:w-64 bg-white/80"
                 />
             </div>
           </div>
@@ -123,14 +127,26 @@ export const WizardList: React.FC = () => {
                  </div>
                  
                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-hogwarts-blue rounded-full flex items-center justify-center text-hogwarts-gold font-magical text-xl border border-hogwarts-gold">
-                        {wizard.name.charAt(0)}
+                    <div className="w-12 h-12 bg-hogwarts-blue rounded-full flex items-center justify-center text-hogwarts-gold font-magical text-xl border border-hogwarts-gold overflow-hidden shrink-0">
+                        {wizard.avatar_url ? (
+                            <img 
+                                src={wizard.avatar_url} 
+                                alt={wizard.name} 
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedImage(wizard.avatar_url!);
+                                }}
+                            />
+                        ) : (
+                            wizard.name.charAt(0)
+                        )}
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold font-serif text-hogwarts-ink group-hover:text-hogwarts-red transition-colors">
+                        <h3 className="text-xl font-bold font-seminaria text-hogwarts-ink group-hover:text-hogwarts-red transition-colors">
                             {wizard.name}
                         </h3>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                             wizard.role === 'admin' 
                                 ? 'bg-hogwarts-red/10 text-hogwarts-red border border-hogwarts-red/20' 
                                 : 'bg-hogwarts-green/10 text-hogwarts-green border border-hogwarts-green/20'
@@ -144,6 +160,12 @@ export const WizardList: React.FC = () => {
           </div>
         )}
       </div>
+      <ImageModal 
+        isOpen={!!selectedImage}
+        onClose={() => setSelectedImage(null)}
+        imageUrl={selectedImage || ''}
+        altText="Wizard Avatar"
+      />
     </div>
   );
 };

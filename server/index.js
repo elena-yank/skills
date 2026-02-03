@@ -13,12 +13,77 @@ const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Logging Middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Database connection
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+// Migration function to update DB schema
+const runMigrations = async () => {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Add type column if not exists
+      await client.query(`
+        ALTER TABLE practice_logs 
+        ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'practice'
+      `);
+
+      // Update status check constraint
+      // First try to drop the constraint if it exists. 
+      // Note: The name might vary, but standard naming is table_column_check.
+      // We'll try a few common names or just ignore error if not found? 
+      // Better to check catalog, but for this env we'll try the most likely name from init.sql context.
+      // If init.sql was used, it's likely practice_logs_status_check.
+      
+      try {
+        await client.query(`
+            ALTER TABLE practice_logs 
+            DROP CONSTRAINT IF EXISTS practice_logs_status_check
+        `);
+      } catch (e) {
+        console.log('Constraint might not exist or has different name, proceeding...');
+      }
+
+      // Add the new constraint
+      await client.query(`
+        ALTER TABLE practice_logs 
+        ADD CONSTRAINT practice_logs_status_check 
+        CHECK (status IN ('pending', 'approved', 'rejected', 'exam_passed'))
+      `);
+
+      // Add avatar_url column to wizards table
+      await client.query(`
+        ALTER TABLE wizards
+        ADD COLUMN IF NOT EXISTS avatar_url TEXT
+      `);
+
+      await client.query('COMMIT');
+      console.log('Migrations completed successfully');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Migration failed:', err);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error connecting to DB for migrations:', err);
+  }
+};
+
+// Run migrations on startup
+runMigrations();
 
 // Helper to convert DB casing to CamelCase if needed, but for now we keep simple
 // API Routes
@@ -67,7 +132,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users/:name', async (req, res) => {
     try {
       const name = req.params.name.replace(/_/g, ' '); // Decode URL friendly name
-      const result = await pool.query('SELECT id, name FROM wizards WHERE name ILIKE $1', [name]);
+      const result = await pool.query('SELECT id, name, avatar_url FROM wizards WHERE name ILIKE $1', [name]);
       if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Wizard not found' });
     }
@@ -81,8 +146,28 @@ app.get('/api/users/:name', async (req, res) => {
 // Auth: List All Users (Public)
 app.get('/api/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, role FROM wizards ORDER BY name ASC');
+        const result = await pool.query('SELECT id, name, role, avatar_url FROM wizards ORDER BY name ASC');
         res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Update Avatar
+app.patch('/api/users/:id/avatar', async (req, res) => {
+    const { id } = req.params;
+    const { avatar_url } = req.body;
+    
+    try {
+        const result = await pool.query(
+            'UPDATE wizards SET avatar_url = $1 WHERE id = $2 RETURNING id, name, role, avatar_url',
+            [avatar_url, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -178,7 +263,7 @@ app.get('/api/admin/logs', async (req, res) => {
     const { skill_name, status } = req.query;
     try {
         let query = `
-            SELECT pl.*, w.name as wizard_name 
+            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar
             FROM practice_logs pl
             JOIN wizards w ON pl.user_id = w.id
             WHERE 1=1
@@ -203,7 +288,10 @@ app.get('/api/admin/logs', async (req, res) => {
         // Format result to match expected frontend structure (nested wizard object)
         const formattedRows = result.rows.map(row => ({
             ...row,
-            wizards: { name: row.wizard_name }
+            wizards: { 
+                name: row.wizard_name,
+                avatar_url: row.wizard_avatar
+            }
         }));
         
         res.json(formattedRows);
@@ -215,11 +303,11 @@ app.get('/api/admin/logs', async (req, res) => {
 
 // Logs: Create Log
 app.post('/api/logs', async (req, res) => {
-  const { user_id, skill_name, content, word_count, post_link } = req.body;
+  const { user_id, skill_name, content, word_count, post_link, type } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO practice_logs (user_id, skill_name, content, word_count, post_link) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [user_id, skill_name, content, word_count, post_link]
+      'INSERT INTO practice_logs (user_id, skill_name, content, word_count, post_link, type) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [user_id, skill_name, content, word_count, post_link, type || 'practice']
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -257,7 +345,7 @@ app.patch('/api/logs/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['approved', 'rejected'].includes(status)) {
+    if (!['approved', 'rejected', 'exam_passed'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
 

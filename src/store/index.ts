@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
+import { calculateSkillProgress, calculateSpecialSkillStatus } from '../lib/skillUtils';
 
 // Define our own simple User type
 export interface Wizard {
   id: string;
   name: string;
   role: 'user' | 'admin';
+  avatar_url?: string;
 }
 
 export interface Skill {
@@ -14,6 +16,10 @@ export interface Skill {
   progress: number; // 0-100
   pendingCount?: number;
   approvedCount?: number;
+  isLocked?: boolean;
+  level?: number;
+  applicationStatus?: 'pending' | 'approved' | 'rejected' | 'none';
+  hasExamPassed?: boolean;
 }
 
 interface AppState {
@@ -22,9 +28,9 @@ interface AppState {
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
-  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string, viewAsUser?: boolean) => Promise<void>;
+  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string, viewAsUser?: boolean, type?: 'practice' | 'exam' | 'application') => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
-  updateLogStatus: (logId: string, status: 'approved' | 'rejected') => Promise<void>;
+  updateLogStatus: (logId: string, status: 'approved' | 'rejected' | 'exam_passed') => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -122,18 +128,74 @@ export const useStore = create<AppState>((set, get) => ({
          const data = await api.logs.list(user.id);
          
          const progressMap = new Map<string, number>();
+         const examPassedMap = new Map<string, boolean>();
+         const specialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
+
          data?.forEach(log => {
+             // Handle application logs
+             if (log.type === 'application') {
+                 if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
+                     // Keep the most relevant status. If there are multiple, prioritize pending > rejected > approved?
+                     // Actually, if ANY is approved, we are good.
+                     // If no approved, but one is pending, then pending.
+                     // If all rejected, then rejected.
+                     const current = specialSkillAppStatus.get(log.skill_name);
+                     if (current === 'approved') return; // Already approved
+                     
+                     if (log.status === 'approved') {
+                         specialSkillAppStatus.set(log.skill_name, 'approved');
+                     } else if (log.status === 'pending') {
+                         specialSkillAppStatus.set(log.skill_name, 'pending');
+                     } else if (log.status === 'rejected' && current !== 'pending') {
+                         specialSkillAppStatus.set(log.skill_name, 'rejected');
+                     }
+                 }
+                 return; // Don't count application logs for progress
+             }
+
              if (log.status === 'approved') {
                 const current = progressMap.get(log.skill_name) || 0;
                 progressMap.set(log.skill_name, current + 1);
              }
+             if (log.status === 'exam_passed') {
+                 examPassedMap.set(log.skill_name, true);
+                 const current = progressMap.get(log.skill_name) || 0;
+                 progressMap.set(log.skill_name, current + 1);
+             }
          });
 
-         const updatedSkills = DEFAULT_SKILLS.map(name => ({
-            id: name,
-            name,
-            progress: Math.min(progressMap.get(name) || 0, 100)
-         })).sort((a, b) => b.progress - a.progress);
+         const updatedSkills = DEFAULT_SKILLS.map(name => {
+            const count = progressMap.get(name) || 0;
+            const hasExamPassed = examPassedMap.get(name) || false;
+
+            if (['Метаморфомагия', 'Провидение'].includes(name)) {
+                const appStatus = (specialSkillAppStatus.get(name) || 'none') as 'pending' | 'approved' | 'rejected' | 'none';
+                const isUnlocked = appStatus === 'approved';
+                
+                if (!isUnlocked) {
+                    return { 
+                        id: name, 
+                        name, 
+                        progress: 0, 
+                        isLocked: true, 
+                        level: 1,
+                        applicationStatus: appStatus
+                    };
+                }
+                const { level, progress } = calculateSpecialSkillStatus(count);
+                return { id: name, name, progress, isLocked: false, level };
+            }
+
+            const progress = calculateSkillProgress(name, count, hasExamPassed);
+
+            return {
+                id: name,
+                name,
+                progress,
+                approvedCount: count,
+                hasExamPassed
+            };
+         }).sort((a, b) => b.progress - a.progress);
 
          set({ skills: updatedSkills });
       }
@@ -144,7 +206,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean) => {
+  addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean, type: 'practice' | 'exam' = 'practice') => {
     const { user, fetchSkills } = get();
     if (!user) return;
 
@@ -154,7 +216,8 @@ export const useStore = create<AppState>((set, get) => ({
         skill_name: skillName,
         content,
         word_count: wordCount,
-        post_link: postLink
+        post_link: postLink,
+        type
       });
 
       // Refresh skills to update progress
@@ -178,7 +241,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  updateLogStatus: async (logId: string, status: 'approved' | 'rejected') => {
+  updateLogStatus: async (logId: string, status: 'approved' | 'rejected' | 'exam_passed') => {
       const { user, fetchSkills } = get();
       if (!user || user.role !== 'admin') return;
 

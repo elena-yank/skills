@@ -31,11 +31,20 @@ export const restApi: ApiClient = {
       if (!res.ok) throw new Error(data.error);
       return data as User;
     },
-    listAllUsers: async () => {
-        const res = await fetch(`${API_URL}/users`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        return data as User[];
+    listAllUsers: () => {
+        return fetch(`${API_URL}/users`).then(res => res.json());
+    }
+  },
+  users: {
+    updateAvatar: async (id, avatarUrl) => {
+      const res = await fetch(`${API_URL}/users/${id}/avatar`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: avatarUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as User;
     }
   },
   admin: {

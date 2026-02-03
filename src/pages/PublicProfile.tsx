@@ -5,6 +5,7 @@ import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp, Info } from 
 import { SKILL_CATEGORIES } from '../store';
 import { SkillInfoModal } from '../components/SkillInfoModal';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
+import { calculateSkillProgress, calculateSpecialSkillStatus, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
@@ -13,6 +14,10 @@ interface Skill {
   id: string;
   name: string;
   progress: number;
+  level?: number;
+  applicationStatus?: string;
+  approvedCount?: number;
+  hasExamPassed?: boolean;
 }
 
 const ALL_SKILLS = Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills)));
@@ -24,6 +29,53 @@ export const PublicProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+  const getDeclension = (number: number, titles: [string, string, string]) => {
+      const cases = [2, 0, 1, 1, 1, 2];
+      return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
+  };
+
+  const getSkillNextStepInfo = (skill: Skill) => {
+    const count = skill.approvedCount || 0;
+    
+    // Special Skills
+    if (['Метаморфомагия', 'Провидение'].includes(skill.name)) {
+        if (skill.level === 1) {
+            const needed = 10 - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до повышения уровня`;
+        } else if (skill.level === 2) {
+            const needed = 15 - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до повышения уровня`;
+        } else if (skill.level === 3) {
+            return 'Максимальный уровень';
+        }
+        return null;
+    }
+    
+    // Standard Skills
+    const threshold = SKILL_THRESHOLDS[skill.name] || 100;
+    const isExamRequired = EXAM_REQUIRED_SKILLS.includes(skill.name);
+    
+    if (isExamRequired) {
+        if (skill.hasExamPassed) return 'Максимальный уровень';
+        
+        if (count < threshold) {
+            const needed = threshold - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} и экзамен`;
+        } else {
+            return 'Требуется сдать экзамен';
+        }
+    } else {
+        if (count < threshold) {
+            const needed = threshold - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до завершения`;
+        } else {
+             return 'Максимальный уровень';
+        }
+    }
+  };
+
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
     SKILL_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.name]: true }), {})
   );
@@ -56,22 +108,54 @@ export const PublicProfile: React.FC = () => {
 
         // 3. Calculate progress
         const progressMap = new Map<string, number>();
+        const examPassedMap = new Map<string, boolean>();
+        const applicationStatusMap = new Map<string, string>();
+        
         logsData?.forEach(log => {
-          // Only approved logs count for progress? 
-          // Prompt says "Текст появляется... но пока что не влияет на прогресс". 
-          // So pending shouldn't count.
-          // Since we are viewing public profile, maybe we should only count approved ones too.
           if (log.status === 'approved') {
               const current = progressMap.get(log.skill_name) || 0;
               progressMap.set(log.skill_name, current + 1);
           }
+          if (log.status === 'exam_passed') {
+              examPassedMap.set(log.skill_name, true);
+              const current = progressMap.get(log.skill_name) || 0;
+              progressMap.set(log.skill_name, current + 1);
+          }
+          if (log.type === 'application') {
+              // Prefer approved status if multiple exist (unlikely but safe)
+              const existing = applicationStatusMap.get(log.skill_name);
+              if (existing !== 'approved') {
+                  applicationStatusMap.set(log.skill_name, log.status);
+              }
+          }
         });
 
-        const calculatedSkills = ALL_SKILLS.map(name => ({
-          id: name,
-          name,
-          progress: Math.min(progressMap.get(name) || 0, 100)
-        }));
+        const calculatedSkills = ALL_SKILLS.map(name => {
+            const count = progressMap.get(name) || 0;
+            const hasExamPassed = examPassedMap.get(name) || false;
+            
+            if (['Метаморфомагия', 'Провидение'].includes(name)) {
+                const { level, progress } = calculateSpecialSkillStatus(count);
+                
+                return {
+                    id: name,
+                    name,
+                    progress,
+                    level,
+                    applicationStatus: applicationStatusMap.get(name),
+                    approvedCount: count
+                };
+            }
+
+            return {
+                id: name,
+                name,
+                progress: calculateSkillProgress(name, count, hasExamPassed),
+                applicationStatus: applicationStatusMap.get(name),
+                approvedCount: count,
+                hasExamPassed
+            };
+        });
 
         setSkills(calculatedSkills);
       } catch (err: any) {
@@ -211,17 +295,64 @@ export const PublicProfile: React.FC = () => {
 
                                 <div className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
+                                        className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
                                         style={{ width: `${skill.progress}%` }}
                                     >
-                                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                        <div 
+                                            className="h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0"
+                                            style={{ width: `${skill.progress > 0 ? (100 / skill.progress * 100) : 0}%` }}
+                                        >
+                                            <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 
-                                <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
-                                    <span>Новичок</span>
-                                    <span>{skill.progress}% Мастерства</span>
-                                    <span>Магистр</span>
+                                <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10">
+                                    {/* Tooltip positioned relative to the container (center of progress bar) */}
+                                    {getSkillNextStepInfo(skill) && (
+                                        <div className={`
+                                            absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
+                                            bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
+                                            border border-hogwarts-gold/30
+                                            after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
+                                            ${activeTooltip === skill.name ? 'block' : 'hidden group-hover:block'}
+                                        `}>
+                                            {getSkillNextStepInfo(skill)}
+                                        </div>
+                                    )}
+
+                                    <div 
+                                        className="relative group cursor-pointer inline-flex flex-col items-center"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                        }}
+                                    >
+                                        <span>{skill.progress}%</span>
+                                    </div>
+                                    {skill.level && (
+                                        <span className="text-hogwarts-blue">{skill.level}-й уровень</span>
+                                    )}
+                                    {['Метаморфомагия', 'Провидение'].includes(skill.name) && skill.applicationStatus && skill.applicationStatus !== 'approved' && (
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className={`
+                                                ${skill.applicationStatus === 'pending' ? 'text-hogwarts-gold' : ''}
+                                                ${skill.applicationStatus === 'rejected' ? 'text-hogwarts-red' : ''}
+                                            `}>
+                                                {skill.applicationStatus === 'pending' && '(ЗАЯВКА НА РАССМОТРЕНИИ)'}
+                                                {skill.applicationStatus === 'rejected' && '(ЗАЯВКА ОТКЛОНЕНА)'}
+                                            </span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`);
+                                                }}
+                                                className="text-[10px] text-hogwarts-blue hover:text-hogwarts-gold underline underline-offset-2 transition-colors cursor-pointer"
+                                            >
+                                                Просмотреть заявку
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 </div>
                             );

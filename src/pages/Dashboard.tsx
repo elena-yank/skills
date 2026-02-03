@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useStore } from '../store';
-import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload } from 'lucide-react';
 import { SKILL_CATEGORIES } from '../store';
 import { PracticeModal } from '../components/PracticeModal';
 import { SkillInfoModal } from '../components/SkillInfoModal';
+import { ImageModal } from '../components/ImageModal';
+import { ImageCropper } from '../components/ImageCropper';
+import { api } from '../lib/api';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
+import { EXAM_REQUIRED_SKILLS, SKILL_THRESHOLDS } from '../lib/skillUtils';
 import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -14,9 +18,110 @@ export const Dashboard: React.FC = () => {
   const { user, skills, fetchSkills, signOut } = useStore();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
+  const [isExamMode, setIsExamMode] = useState(false);
+  const [isApplicationMode, setIsApplicationMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const [adminView, setAdminView] = useState(true);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  
+  const [isUploading, setIsUploading] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Размер файла не должен превышать 3 МБ');
+      return;
+    }
+
+    // Read file for cropping
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageToCrop(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedImage: string) => {
+    setImageToCrop(null);
+    setIsUploading(true);
+    if (user) {
+        try {
+            // @ts-ignore
+            const updatedUser = await api.users.updateAvatar(user.id, croppedImage);
+            // We need to update the user in the store
+            const { setUser } = useStore.getState(); 
+            setUser({ ...user, avatar_url: updatedUser.avatar_url });
+        } catch (error) {
+            console.error('Failed to update avatar:', error);
+            alert('Не удалось обновить фото');
+        }
+    }
+    setIsUploading(false);
+  };
+
+  const handleCropCancel = () => {
+    setImageToCrop(null);
+  };
+
+  const getDeclension = (number: number, titles: [string, string, string]) => {
+      const cases = [2, 0, 1, 1, 1, 2];
+      return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
+  };
+
+  const getSkillNextStepInfo = (skill: any) => {
+    if (skill.isLocked) return null;
+    
+    const count = skill.approvedCount || 0;
+    
+    // Special Skills
+    if (['Метаморфомагия', 'Провидение'].includes(skill.name)) {
+        if (skill.level === 1) {
+            const needed = 10 - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до повышения уровня`;
+        } else if (skill.level === 2) {
+            const needed = 15 - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до повышения уровня`;
+        } else if (skill.level === 3) {
+            return 'Максимальный уровень';
+        }
+        return null;
+    }
+    
+    // Standard Skills
+    const threshold = SKILL_THRESHOLDS[skill.name] || 100;
+    const isExamRequired = EXAM_REQUIRED_SKILLS.includes(skill.name);
+    
+    if (isExamRequired) {
+        if (skill.hasExamPassed) return 'Максимальный уровень';
+        
+        if (count < threshold) {
+            const needed = threshold - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} и экзамен`;
+        } else {
+            return 'Требуется сдать экзамен';
+        }
+    } else {
+        if (count < threshold) {
+            const needed = threshold - count;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до завершения`;
+        } else {
+             return 'Максимальный уровень';
+        }
+    }
+  };
+
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(
     SKILL_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.name]: true }), {})
   );
@@ -89,9 +194,57 @@ export const Dashboard: React.FC = () => {
           />
           <div className="relative z-10 flex justify-between items-center px-12 py-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0">
-                <GraduationCap className="w-8 h-8" />
+              <div 
+                  className={`w-16 h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
+                  onClick={!showAdminInterface ? handleAvatarClick : undefined}
+              >
+                {user?.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                    <GraduationCap className="w-8 h-8" />
+                )}
+                
+                {!showAdminInterface && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Upload className="w-6 h-6 text-white" />
+                    </div>
+                )}
+                
+                {isUploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full"></div>
+                    </div>
+                )}
               </div>
+
+              {!showAdminInterface && user?.avatar_url && (
+                   <button
+                       onClick={(e) => {
+                           e.stopPropagation();
+                           setShowAvatarModal(true);
+                       }}
+                       className="absolute left-[70px] bottom-6 bg-hogwarts-gold text-hogwarts-ink p-1 rounded-full shadow-md hover:bg-yellow-400 transition-colors z-10"
+                       title="Посмотреть фото"
+                   >
+                       <Maximize2 className="w-3 h-3" />
+                   </button>
+              )}
+
+              <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="hidden"
+              />
+
+              <ImageModal 
+                  isOpen={showAvatarModal}
+                  onClose={() => setShowAvatarModal(false)}
+                  imageUrl={user?.avatar_url || ''}
+                  altText={user?.name || 'Avatar'}
+              />
+
               <div>
                 <h2 className="text-4xl text-hogwarts-gold font-seminaria font-bold">
                     {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
@@ -158,10 +311,10 @@ export const Dashboard: React.FC = () => {
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           <div className="flex justify-between items-center mb-2">
-                            <div className="flex items-center gap-2">
+                            <div>
                                 <h3 
                                 onClick={() => handleSkillClick(skill.name)}
-                                className="text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
+                                className="inline text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
                                 >
                                 {skill.name}
                                 </h3>
@@ -171,7 +324,7 @@ export const Dashboard: React.FC = () => {
                                             e.stopPropagation();
                                             setSelectedSkillInfo(skill.name);
                                         }}
-                                        className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
+                                        className="ml-1 inline-block align-middle p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
                                         title="Информация о навыке"
                                     >
                                         <Info className="w-5 h-5" />
@@ -179,13 +332,35 @@ export const Dashboard: React.FC = () => {
                                 )}
                             </div>
                             {!showAdminInterface && (
-                                <button
-                                onClick={() => setSelectedSkill(skill.name)}
-                                className="p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
-                                title="Практиковать этот навык"
-                                >
-                                <Plus className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    {EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedSkill(skill.name);
+                                                setIsExamMode(true);
+                                                setIsApplicationMode(false);
+                                            }}
+                                            className="px-3 py-1 rounded-full text-white font-bold text-xs shadow-md hover:shadow-lg transition-all"
+                                            style={{ backgroundColor: '#006633' }}
+                                        >
+                                            Сдать экзамен
+                                        </button>
+                                    )}
+                                    {!skill.isLocked && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedSkill(skill.name);
+                                                setIsExamMode(false);
+                                                setIsApplicationMode(false);
+                                            }}
+                                            className="p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
+                                            title="Практиковать этот навык"
+                                        >
+                                            <Plus className="w-5 h-5" />
+                                        </button>
+                                    )}
+                                </div>
                             )}
                           </div>
 
@@ -196,13 +371,13 @@ export const Dashboard: React.FC = () => {
                                 onClick={() => handleSkillClick(skill.name)}
                               >
                                   <div className="flex flex-col">
-                                      <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">Одобрено</span>
-                                      <span className="text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                      <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-serif">На проверке</span>
-                                      <span className="text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
-                                  </div>
+                                  <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-nexa">Одобрено</span>
+                                  <span className="text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                  <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-nexa">На проверке</span>
+                                  <span className="text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
+                              </div>
                                   <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                                       <FileText className="w-6 h-6 text-hogwarts-blue" />
                                   </div>
@@ -210,23 +385,87 @@ export const Dashboard: React.FC = () => {
                           ) : (
                               // User View: Progress Bar
                               <>
-                                <div 
-                                    className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden cursor-pointer"
-                                    onClick={() => handleSkillClick(skill.name)}
-                                >
-                                    <div
-                                    className="h-full bg-gradient-to-r from-hogwarts-red to-hogwarts-gold transition-all duration-1000 ease-out relative"
-                                    style={{ width: `${skill.progress}%` }}
-                                    >
-                                    <div className="absolute inset-0 bg-white/10 opacity-30"></div>
-                                    </div>
-                                </div>
-                                
-                                <div className="mt-2 flex justify-between text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase">
-                                    <span>Новичок</span>
-                                    <span>{skill.progress}% Мастерства</span>
-                                    <span>Магистр</span>
-                                </div>
+                                {skill.isLocked ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                         <button
+                                             onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 if (skill.applicationStatus === 'pending') return;
+                                                 setSelectedSkill(skill.name);
+                                                 setIsApplicationMode(true);
+                                                 setIsExamMode(false);
+                                             }}
+                                             disabled={skill.applicationStatus === 'pending'}
+                                            className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-md transition-all font-nexa ${
+                                               skill.applicationStatus === 'pending' 
+                                                 ? 'bg-gray-400 cursor-not-allowed' 
+                                                 : (skill.applicationStatus === 'rejected' ? 'bg-red-600 hover:bg-red-700 hover:shadow-lg' : 'bg-[#006633] hover:shadow-lg')
+                                            }`}
+                                        >
+                                             {skill.applicationStatus === 'pending' 
+                                                ? 'Заявка на рассмотрении' 
+                                                : (skill.applicationStatus === 'rejected' ? 'Заявка отклонена (Повторить)' : 'Подать заявку')}
+                                         </button>
+                                         {(skill.applicationStatus === 'pending' || skill.applicationStatus === 'rejected') && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/skill/${encodeURIComponent(skill.name)}`);
+                                                }}
+                                                className="text-xs text-hogwarts-gold/70 hover:text-hogwarts-gold underline underline-offset-2 font-serif transition-colors"
+                                            >
+                                                Просмотреть заявку
+                                            </button>
+                                         )}
+                                     </div>
+                                ) : (
+                                    <>
+                                        <div 
+                                            className="w-full h-8 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden cursor-pointer"
+                                            onClick={() => handleSkillClick(skill.name)}
+                                        >
+                                            <div
+                                                className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
+                                                style={{ width: `${skill.progress}%` }}
+                                            >
+                                                <div 
+                                                    className="h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0"
+                                                    style={{ width: `${skill.progress > 0 ? (100 / skill.progress * 100) : 0}%` }}
+                                                >
+                                                    <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10">
+                                            {/* Tooltip positioned relative to the container (center of progress bar) */}
+                                            {getSkillNextStepInfo(skill) && (
+                                                <div className={`
+                                                    absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
+                                                    bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
+                                                    border border-hogwarts-gold/30
+                                                    after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
+                                                    ${activeTooltip === skill.name ? 'block' : 'hidden group-hover:block'}
+                                                `}>
+                                                    {getSkillNextStepInfo(skill)}
+                                                </div>
+                                            )}
+
+                                            <div 
+                                                className="relative group cursor-pointer inline-flex flex-col items-center"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                                }}
+                                            >
+                                                <span>{skill.progress}%</span>
+                                            </div>
+                                            {skill.level && (
+                                                <span className="text-hogwarts-blue">{skill.level}-й уровень</span>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                               </>
                           )}
                         </div>
@@ -242,10 +481,23 @@ export const Dashboard: React.FC = () => {
       <PracticeModal
         skillName={selectedSkill || ''}
         isOpen={!!selectedSkill}
-        onClose={() => setSelectedSkill(null)}
+        onClose={() => {
+            setSelectedSkill(null);
+            setIsExamMode(false);
+        }}
         viewAsUser={!showAdminInterface}
+        isExam={isExamMode}
+        isApplication={isApplicationMode}
       />
       
+      {imageToCrop && (
+        <ImageCropper
+          imageSrc={imageToCrop}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
+
       <SkillInfoModal
         isOpen={!!selectedSkillInfo}
         onClose={() => setSelectedSkillInfo(null)}
