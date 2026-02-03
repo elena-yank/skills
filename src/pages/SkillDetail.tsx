@@ -333,24 +333,36 @@ export const SkillDetail: React.FC = () => {
   }, [user, skillName, username, viewMode, isAdmin]); // Re-fetch when viewMode changes
 
   const handleDeleteLog = async (id: string) => {
+    const logToDelete = logs.find(log => log.id === id);
+    if (!logToDelete) return;
+
+    // Optimistically remove locally
+    setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
+
     try {
         await deletePracticeLog(id);
-        // Remove locally to update UI immediately
-        setLogs(logs.filter(log => log.id !== id));
     } catch (e) {
         console.error("Failed to delete log", e);
         alert("Не удалось уничтожить свиток. Магия дала сбой.");
+        // Rollback
+        setLogs(prevLogs => [...prevLogs, logToDelete]);
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected') => {
+  const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected' | 'exam_passed') => {
+    const logToUpdate = logs.find(log => log.id === id);
+    if (!logToUpdate) return;
+
+    // Optimistically remove locally
+    setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
+
     try {
         await updateLogStatus(id, status);
-        // Remove locally from the current list since the status changed and we filter by status
-        setLogs(logs.filter(log => log.id !== id));
     } catch (e) {
         console.error("Failed to update status", e);
         alert("Не удалось обновить статус свитка.");
+        // Rollback
+        setLogs(prevLogs => [...prevLogs, logToUpdate]);
     }
   };
 
