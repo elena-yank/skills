@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import { PracticeLog } from '../lib/api/types';
+import { ImageModal } from '../components/ImageModal';
 import transgressionSvg from '../assets/transgression.svg';
 import patronusGoldSvg from '../assets/patronus_gold.svg';
 import nonverbalGoldSvg from '../assets/nonverbal-gold.svg';
@@ -27,6 +28,7 @@ const LogItem: React.FC<{
 }> = ({ log, onDelete, isOwner, onUpdateStatus }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const { user } = useStore();
   const isAdmin = user?.role === 'admin';
   
@@ -45,19 +47,19 @@ const LogItem: React.FC<{
 
   return (
     <article 
-      className="bg-white p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden"
+      className="bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden"
     >
       {/* Overlays for User Status */}
       {!isAdmin && log.status === 'pending' && (
           <div className="absolute inset-0 bg-white/60 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
-             <div className="bg-[#D3A625] text-hogwarts-red px-6 py-3 rounded-lg shadow-xl font-magical font-bold text-xl border-2 border-hogwarts-red pointer-events-auto z-40 opacity-100">
+             <div className="bg-[#D3A625] text-hogwarts-red px-6 py-3 rounded-lg shadow-xl font-magical font-bold text-xl border-2 border-hogwarts-red pointer-events-auto z-40 opacity-100 text-center mx-4">
                 {log.type === 'exam' ? 'Экзаменационная работа ожидает проверки' : 'Текст ожидает проверку'}
              </div>
           </div>
       )}
       {!isAdmin && log.status === 'rejected' && (
           <div className="absolute inset-0 bg-red-100/80 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
-             <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100">
+             <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100 text-center mx-4">
                 Ваш текст был отклонён, обратитесь к администрации
              </div>
           </div>
@@ -87,9 +89,9 @@ const LogItem: React.FC<{
         </div>
       )}
 
-      <div className="flex justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-10">
-        <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
+      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-10 gap-4 md:gap-0">
+        <div className="flex flex-col gap-1 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
             {log.type === 'exam' && (
                 <span className="bg-hogwarts-purple text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
                     Экзамен
@@ -108,7 +110,7 @@ const LogItem: React.FC<{
                 href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="ml-4 flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors"
+                className="ml-0 md:ml-4 flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors w-full md:w-auto mt-2 md:mt-0"
                 title="Открыть ссылку"
                 >
                 <Feather className="w-4 h-4" />
@@ -116,14 +118,23 @@ const LogItem: React.FC<{
                 </a>
             )}
             </div>
-            {isAdmin && log.wizards?.name && (
-                <div className="flex items-center gap-2 text-hogwarts-purple font-magical text-lg">
+            {log.wizards?.name && (
+                <div className="flex items-center gap-2 text-hogwarts-purple font-magical text-lg mt-2 md:mt-0">
                     {log.wizards.avatar_url ? (
-                        <img 
-                            src={log.wizards.avatar_url} 
-                            alt={log.wizards.name} 
-                            className="w-8 h-8 rounded-full border border-hogwarts-gold object-cover"
-                        />
+                        <>
+                            <img 
+                                src={log.wizards.avatar_url} 
+                                alt={log.wizards.name} 
+                                className="w-8 h-8 rounded-full border border-hogwarts-gold object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setShowAvatarModal(true)}
+                            />
+                            <ImageModal 
+                                isOpen={showAvatarModal}
+                                onClose={() => setShowAvatarModal(false)}
+                                imageUrl={log.wizards.avatar_url}
+                                altText={log.wizards.name}
+                            />
+                        </>
                     ) : (
                         <UserIcon className="w-4 h-4" />
                     )}
@@ -132,7 +143,7 @@ const LogItem: React.FC<{
             )}
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
             {log.type === 'application' && (
                 <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
                     Заявка на освоение
@@ -150,7 +161,7 @@ const LogItem: React.FC<{
             {(isOwner || isAdmin) && (
                 <button 
                     onClick={handleDelete}
-                    className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1 relative z-50"
+                    className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1 relative z-50 ml-auto md:ml-0"
                     title="Уничтожить свиток"
                 >
                     <Trash2 className="w-5 h-5" />
@@ -364,7 +375,7 @@ export const SkillDetail: React.FC = () => {
         <div className="absolute inset-0 bg-black/60 z-10"></div>
       </div>
 
-      <div className="relative z-20 max-w-4xl mx-auto p-8">
+      <div className="relative z-20 max-w-4xl mx-auto p-4 md:p-8">
         <button
           onClick={() => username ? navigate(`/u/${username}`) : navigate('/')}
           className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
@@ -377,58 +388,60 @@ export const SkillDetail: React.FC = () => {
           <img
             src={frameSvg}
             alt="Frame"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
           />
-          <div className={`relative z-10 flex justify-between px-12 py-8 ${isAdmin ? 'items-start' : 'items-end'}`}>
+           <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
+
+          <div className={`relative z-10 flex flex-col md:flex-row justify-between px-6 py-6 md:px-12 md:py-8 gap-4 md:gap-0 ${isAdmin ? 'items-center md:items-start' : 'items-center md:items-end'}`}>
             <div>
-                <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
+                <h1 className="text-2xl md:text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
                     {decodedSkillName === 'Трансгрессия' ? (
                         <img 
                             src={transgressionSvg} 
                             alt="Transgression" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Телесный патронус' ? (
                         <img 
                             src={patronusGoldSvg} 
                             alt="Patronus" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Невербальная магия' ? (
                         <img 
                             src={nonverbalGoldSvg} 
                             alt="Non-verbal Magic" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Беспалочковая магия' ? (
                         <img 
                             src={nowandGoldSvg} 
                             alt="Wandless Magic" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Мортимагия' ? (
                         <img 
                             src={mortGoldSvg} 
                             alt="Mortimagic" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Анимагия' ? (
                         <img 
                             src={animaGoldSvg} 
                             alt="Animagus" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Артефакторика' ? (
                         <img 
                             src={artifactsGoldSvg} 
                             alt="Artifacts" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : decodedSkillName === 'Магия пространства' ? (
                         <img 
                             src={spaceSvg} 
                             alt="Space Magic" 
-                            className="w-16 h-16 shrink-0 object-cover object-right select-none"
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : (
                         <Feather className="w-12 h-12 shrink-0" />
@@ -436,7 +449,7 @@ export const SkillDetail: React.FC = () => {
                     <div className="flex flex-col">
                         <span>{decodedSkillName}</span>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="text-white text-lg font-century">
+                            <span className="text-white text-base md:text-lg font-century">
                                 {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
                             </span>
                             {!isAdmin && (
@@ -455,7 +468,7 @@ export const SkillDetail: React.FC = () => {
             {isAdmin && (
                 <button
                     onClick={() => setViewMode(viewMode === 'pending' ? 'approved' : 'pending')}
-                    className="px-6 py-2 bg-hogwarts-blue text-white rounded-lg hover:bg-blue-900 transition-colors font-normal shadow-lg border-2 border-hogwarts-gold font-century"
+                    className="px-6 py-2 bg-hogwarts-blue text-white rounded-lg hover:bg-blue-900 transition-colors font-normal shadow-lg border-2 border-hogwarts-gold font-century mt-4 md:mt-0 w-full md:w-auto"
                 >
                     {viewMode === 'pending' ? 'Уже одобренные' : 'На проверку'}
                 </button>
@@ -463,7 +476,7 @@ export const SkillDetail: React.FC = () => {
             {!isAdmin && applicationLog && (
                 <button
                     onClick={() => setShowApplicationModal(true)}
-                    className="flex items-center gap-2 text-hogwarts-gold hover:text-white transition-colors font-century text-lg"
+                    className="flex items-center gap-2 text-hogwarts-gold hover:text-white transition-colors font-century text-base md:text-lg mt-4 md:mt-0"
                 >
                     <Scroll className="w-4 h-4" />
                     Просмотреть заявку
@@ -476,17 +489,17 @@ export const SkillDetail: React.FC = () => {
         {showApplicationModal && applicationLog && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-hogwarts-parchment w-full max-w-2xl rounded-lg shadow-2xl border-4 border-hogwarts-gold relative flex flex-col max-h-[90vh]">
-                    <div className="p-6 border-b-2 border-hogwarts-bronze flex justify-between items-center bg-hogwarts-parchment rounded-t-lg">
-                        <h2 className="text-2xl font-seminaria text-hogwarts-red flex items-center gap-2 font-bold">
-                            <Feather className="w-6 h-6" />
+                    <div className="p-4 md:p-6 border-b-2 border-hogwarts-bronze flex justify-between items-center bg-hogwarts-parchment rounded-t-lg">
+                        <h2 className="text-xl md:text-2xl font-seminaria text-hogwarts-red flex items-center gap-2 font-bold">
+                            <Feather className="w-5 h-5 md:w-6 md:h-6" />
                             Заявка на навык
                         </h2>
                         <button onClick={() => setShowApplicationModal(false)} className="text-hogwarts-ink hover:text-hogwarts-red">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <div className="p-8 overflow-auto">
-                        <div className="prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif">
+                    <div className="p-4 md:p-8 overflow-auto">
+                        <div className="prose prose-stone max-w-none font-body text-base md:text-lg leading-relaxed text-hogwarts-ink font-serif">
                              <p className="whitespace-pre-wrap">{applicationLog.content}</p>
                         </div>
                         <div className="mt-6 flex items-center gap-2 text-sm font-bold uppercase tracking-wider">

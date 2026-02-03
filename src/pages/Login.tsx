@@ -113,19 +113,19 @@ export const Login: React.FC = () => {
          <div className="absolute inset-0 bg-black/60"></div>
       </div>
       
-      <div className="relative w-full max-w-md p-12 min-h-[500px] flex flex-col justify-center z-10">
+      <div className="relative w-full max-w-md p-6 md:p-12 min-h-[500px] flex flex-col justify-center z-10">
         {/* Parchment Background */}
         <div className="absolute inset-0 z-0">
           <img 
             src={parchmentImg}
             alt="Parchment"
-            className="w-full h-full object-fill drop-shadow-2xl mix-blend-lighten scale-110"
+            className="w-full h-full object-fill drop-shadow-2xl mix-blend-lighten scale-100 md:scale-110"
           />
         </div>
 
         <div className="relative z-10 px-4">
           <div className="text-center mb-6">
-            <h1 className="text-4xl text-hogwarts-red mb-2 !font-seminaria font-bold leading-tight whitespace-nowrap">
+            <h1 className="text-2xl md:text-4xl text-hogwarts-red mb-2 !font-seminaria font-bold leading-tight whitespace-nowrap">
               Добро пожаловать!
             </h1>
           </div>

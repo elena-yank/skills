@@ -71,9 +71,9 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-hogwarts-parchment w-full max-w-2xl rounded-lg shadow-2xl border-4 border-hogwarts-gold relative flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b-2 border-hogwarts-bronze flex justify-between items-center bg-hogwarts-parchment rounded-t-lg">
-          <h2 className="text-2xl font-seminaria text-hogwarts-red flex items-center gap-2 font-bold">
-            <Feather className="w-6 h-6" />
+        <div className="p-4 md:p-6 border-b-2 border-hogwarts-bronze flex justify-between items-center bg-hogwarts-parchment rounded-t-lg">
+          <h2 className="text-xl md:text-2xl font-seminaria text-hogwarts-red flex items-center gap-2 font-bold">
+            <Feather className="w-5 h-5 md:w-6 md:h-6" />
             {getTitle()}
           </h2>
           <button onClick={onClose} className="text-hogwarts-ink hover:text-hogwarts-red">
@@ -81,7 +81,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
           </button>
         </div>
 
-        <div className="p-6 flex-1 overflow-auto space-y-4">
+        <div className="p-4 md:p-6 flex-1 overflow-auto space-y-4">
           {isApplication && (
              <p className="text-hogwarts-ink font-serif italic mb-4">
                  {getDescription()}
@@ -106,7 +106,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full h-64 p-4 bg-white border-2 border-hogwarts-bronze rounded-lg resize-none focus:outline-none focus:border-hogwarts-red font-century text-lg leading-relaxed"
+              className="w-full h-48 md:h-64 p-4 bg-white border-2 border-hogwarts-bronze rounded-lg resize-none focus:outline-none focus:border-hogwarts-red font-century text-base md:text-lg leading-relaxed"
               placeholder={!isApplication ? getDescription() : "Текст заявки..."}
             />
             <Scroll className="absolute bottom-4 right-4 text-hogwarts-bronze opacity-50 pointer-events-none" />
@@ -121,7 +121,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
           )}
         </div>
 
-        <div className="p-6 border-t-2 border-hogwarts-bronze bg-hogwarts-parchment rounded-b-lg flex justify-end gap-4">
+        <div className="p-4 md:p-6 border-t-2 border-hogwarts-bronze bg-hogwarts-parchment rounded-b-lg flex justify-end gap-4">
           <button
             onClick={onClose}
             className="px-6 py-2 text-hogwarts-ink font-magical hover:bg-hogwarts-bronze/10 rounded border border-hogwarts-bronze transition-colors font-nexa uppercase"

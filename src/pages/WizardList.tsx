@@ -62,7 +62,7 @@ export const WizardList: React.FC = () => {
         <div className="absolute inset-0 bg-black/60 z-10"></div>
       </div>
 
-      <div className="relative z-20 max-w-4xl mx-auto p-8">
+      <div className="relative z-20 max-w-4xl mx-auto p-4 md:p-8">
         <button
           onClick={() => navigate(user ? '/' : '/login')}
           className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
@@ -71,20 +71,21 @@ export const WizardList: React.FC = () => {
           {user ? 'Вернуться в кабинет' : 'Вернуться ко входу'}
         </button>
 
-        <div className="relative mb-12">
+        <div className="relative mb-8 md:mb-12">
           <img
             src={frameSvg}
             alt="Frame"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
           />
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-12 py-8">
+          <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-4 py-6 md:px-12 md:py-8">
             <div className="flex items-center gap-4">
-                <User className="w-10 h-10 text-hogwarts-gold shrink-0" />
+                <User className="w-8 h-8 md:w-10 md:h-10 text-hogwarts-gold shrink-0" />
                 <div>
-                    <h1 className="text-4xl text-hogwarts-gold font-seminaria font-normal">
+                    <h1 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-normal">
                         Список волшебников
                     </h1>
-                    <p className="text-white text-lg mt-2 font-century font-normal">
+                    <p className="text-white text-sm md:text-lg mt-2 font-century font-normal">
                         Все зарегистрированные участники
                     </p>
                 </div>

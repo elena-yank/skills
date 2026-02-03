@@ -162,16 +162,16 @@ export const DatabaseAdmin: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8 font-sans">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-            <UserCog className="w-8 h-8" />
-            Управление базой данных волшебников
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4 md:gap-0">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
+            <UserCog className="w-6 h-6 md:w-8 md:h-8" />
+            Управление БД
           </h1>
           <button
             onClick={() => setIsAddingUser(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors w-full md:w-auto justify-center"
           >
             <Plus className="w-5 h-5" />
             Добавить пользователя
