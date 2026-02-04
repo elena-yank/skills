@@ -83,6 +83,35 @@ export const restApi: ApiClient = {
         const data = await res.json();
         throw new Error(data.error);
       }
+    },
+    grantSkill: async (userId, skillName, reason, moderatorId) => {
+      const res = await fetch(`${API_URL}/admin/skills/grant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, skill_name: skillName, reason, moderator_id: moderatorId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error);
+      }
+    }
+  },
+  skills: {
+    getMetadata: async () => {
+      const res = await fetch(`${API_URL}/skills/metadata`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    },
+    updateMetadata: async (metadata) => {
+      const res = await fetch(`${API_URL}/skills/metadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadata),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
     }
   },
   logs: {

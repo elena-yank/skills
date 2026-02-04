@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useStore, SKILL_CATEGORIES } from '../store';
-import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap } from 'lucide-react';
+import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-import { User } from '../lib/api/types';
+import { User, SkillMetadata } from '../lib/api/types';
 
 export const DatabaseAdmin: React.FC = () => {
   const { user } = useStore();
@@ -11,6 +11,59 @@ export const DatabaseAdmin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   
+  // Skill Metadata State
+  const [skillMetadata, setSkillMetadata] = useState<Record<string, SkillMetadata>>({});
+  const [isSavingSkill, setIsSavingSkill] = useState<Record<string, boolean>>({});
+  const [isSkillsSectionOpen, setIsSkillsSectionOpen] = useState(false);
+
+  useEffect(() => {
+    fetchSkillMetadata();
+  }, []);
+
+  const fetchSkillMetadata = async () => {
+      try {
+          const data = await api.skills?.getMetadata();
+          const map: Record<string, SkillMetadata> = {};
+          data?.forEach(m => {
+              map[m.skill_name] = m;
+          });
+          setSkillMetadata(map);
+      } catch (err) {
+          console.error('Error fetching skill metadata:', err);
+      }
+  };
+
+  const handleSkillMetaChange = (skillName: string, field: 'name' | 'link', value: string) => {
+      setSkillMetadata(prev => ({
+          ...prev,
+          [skillName]: {
+              skill_name: skillName,
+              responsible_person_name: field === 'name' ? value : (prev[skillName]?.responsible_person_name || ''),
+              responsible_person_link: field === 'link' ? value : (prev[skillName]?.responsible_person_link || ''),
+              updated_at: prev[skillName]?.updated_at
+          }
+      }));
+  };
+
+  const saveSkillMeta = async (skillName: string) => {
+      const meta = skillMetadata[skillName];
+      if (!meta) return;
+      
+      setIsSavingSkill(prev => ({ ...prev, [skillName]: true }));
+      try {
+          await api.skills?.updateMetadata({
+              skill_name: skillName,
+              responsible_person_name: meta.responsible_person_name,
+              responsible_person_link: meta.responsible_person_link
+          });
+      } catch (err) {
+          console.error(err);
+          alert('Ошибка сохранения');
+      } finally {
+          setIsSavingSkill(prev => ({ ...prev, [skillName]: false }));
+      }
+  };
+
   // New user form state
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
@@ -218,6 +271,86 @@ export const DatabaseAdmin: React.FC = () => {
             Добавить пользователя
           </button>
         </header>
+
+        {/* Skills Management Section */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <button 
+                onClick={() => setIsSkillsSectionOpen(!isSkillsSectionOpen)}
+                className="w-full flex items-center justify-between text-left group"
+            >
+                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 group-hover:text-hogwarts-gold transition-colors">
+                    <GraduationCap className="w-6 h-6" />
+                    Ответственные за навыки
+                </h2>
+                {isSkillsSectionOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                )}
+            </button>
+            
+            {isSkillsSectionOpen && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6 animate-in fade-in slide-in-from-top-2">
+                    {allSkills.map(skill => (
+                        <div key={skill} className="border p-4 rounded-lg bg-gray-50 hover:shadow-sm transition-shadow">
+                            <h3 className="font-bold text-gray-700 mb-3 border-b pb-2 font-serif">{skill}</h3>
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Имя ответственного</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="text"
+                                            value={skillMetadata[skill]?.responsible_person_name || ''}
+                                            onChange={(e) => handleSkillMetaChange(skill, 'name', e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                            placeholder="Например: Луна Лавгуд"
+                                        />
+                                        {skillMetadata[skill]?.responsible_person_name && (
+                                            <button
+                                                onClick={() => handleSkillMetaChange(skill, 'name', '')}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                title="Очистить"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Ссылка ВК</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="text"
+                                            value={skillMetadata[skill]?.responsible_person_link || ''}
+                                            onChange={(e) => handleSkillMetaChange(skill, 'link', e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                            placeholder="https://vk.com/..."
+                                        />
+                                        {skillMetadata[skill]?.responsible_person_link && (
+                                            <button
+                                                onClick={() => handleSkillMetaChange(skill, 'link', '')}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                title="Очистить"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => saveSkillMeta(skill)}
+                                    disabled={isSavingSkill[skill]}
+                                    className="w-full mt-2 bg-hogwarts-gold text-white text-sm py-2 rounded-md hover:bg-hogwarts-gold/90 transition-colors flex justify-center items-center gap-2 font-bold shadow-sm disabled:opacity-50"
+                                >
+                                    <Save className="w-4 h-4" />
+                                    {isSavingSkill[skill] ? 'Сохранение...' : 'Сохранить'}
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
 
         {deleteConfirmation.isOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

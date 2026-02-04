@@ -68,3 +68,18 @@ export const calculateSpecialSkillStatus = (approvedCount: number): { level: num
 
 // Alias for backward compatibility if needed, but we will update all usages
 export const calculateMetamorphmagusStatus = calculateSpecialSkillStatus;
+
+export const getSkillTitleClass = (name: string) => {
+    // Uniform increased size for all skills
+    return "text-lg sm:text-xl md:text-2xl lg:text-3xl whitespace-nowrap";
+};
+
+export const getSkillHeaderClass = (name: string) => {
+    if (name.length > 20) {
+        return "text-lg md:text-2xl lg:text-3xl";
+    }
+    if (name.length > 15) {
+        return "text-xl md:text-3xl lg:text-4xl";
+    }
+    return "text-2xl md:text-4xl lg:text-5xl";
+};

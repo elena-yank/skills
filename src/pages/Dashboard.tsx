@@ -8,7 +8,7 @@ import { ImageModal } from '../components/ImageModal';
 import { ImageCropper } from '../components/ImageCropper';
 import { api } from '../lib/api';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
-import { EXAM_REQUIRED_SKILLS, SKILL_THRESHOLDS } from '../lib/skillUtils';
+import { EXAM_REQUIRED_SKILLS, SKILL_THRESHOLDS, getSkillTitleClass } from '../lib/skillUtils';
 import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -326,25 +326,23 @@ export const Dashboard: React.FC = () => {
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           <div className="flex flex-col justify-between items-center mb-2 gap-1 md:gap-0">
-                            <div className="text-center w-full relative">
+                            <div className="flex items-center justify-center w-full relative px-2 gap-1">
                                 <h3 
                                 onClick={() => handleSkillClick(skill.name)}
-                                className="inline text-xl md:text-2xl font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4"
+                                className={`font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4 whitespace-nowrap ${getSkillTitleClass(skill.name)}`}
                                 >
-                                {skill.name}
+                                {skill.name === 'Самостоятельная левитация' ? 'Самост. левитация' : skill.name}
                                 </h3>
-                                {SKILL_DESCRIPTIONS[skill.name] && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedSkillInfo(skill.name);
-                                        }}
-                                        className="ml-1 inline-block align-middle p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
-                                        title="Информация о навыке"
-                                    >
-                                        <Info className="w-5 h-5" />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedSkillInfo(skill.name);
+                                    }}
+                                    className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10 shrink-0"
+                                    title="Информация о навыке"
+                                >
+                                    <Info className="w-4 h-4 md:w-5 md:h-5" />
+                                </button>
                             </div>
                             {!showAdminInterface && (
                                 <div className="flex items-center gap-2 mt-2">
@@ -398,7 +396,7 @@ export const Dashboard: React.FC = () => {
                                                  setIsExamMode(false);
                                              }}
                                              disabled={skill.applicationStatus === 'pending'}
-                                            className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-md transition-all font-nexa ${
+                                            className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-md transition-all font-nexa uppercase ${
                                                skill.applicationStatus === 'pending' 
                                                  ? 'bg-gray-400 cursor-not-allowed' 
                                                  : (skill.applicationStatus === 'rejected' ? 'bg-red-600 hover:bg-red-700 hover:shadow-lg' : 'bg-[#006633] hover:shadow-lg')
@@ -520,7 +518,7 @@ export const Dashboard: React.FC = () => {
         isOpen={!!selectedSkillInfo}
         onClose={() => setSelectedSkillInfo(null)}
         title={selectedSkillInfo || ''}
-        description={selectedSkillInfo ? SKILL_DESCRIPTIONS[selectedSkillInfo] : ''}
+        description={selectedSkillInfo ? (SKILL_DESCRIPTIONS[selectedSkillInfo] || '') : ''}
       />
       </div>
     </div>

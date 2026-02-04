@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap } from 'lucide-react';
 import { useStore } from '../store';
+import { getSkillHeaderClass } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import { PracticeLog } from '../lib/api/types';
@@ -48,9 +49,11 @@ const LogItem: React.FC<{
     setShowConfirm(false);
   };
 
+  const isGranted = log.status === 'exam_passed' && log.word_count === 0 && !!log.moderator_approval_id;
+
   return (
     <article 
-      className="bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden"
+      className={`bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden ${isGranted ? 'border-hogwarts-green/50 bg-green-50/30' : ''}`}
     >
       {/* Overlays for User Status */}
       {!canModerate && log.status === 'pending' && (
@@ -95,19 +98,36 @@ const LogItem: React.FC<{
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-10 gap-4 md:gap-0">
         <div className="flex flex-col gap-1 w-full md:w-auto">
             <div className="flex flex-wrap items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
-            {log.type === 'exam' && (
-                <span className="bg-hogwarts-purple text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
-                    Экзамен
-                </span>
+            {isGranted && log.moderator_name ? (
+                <div className="text-hogwarts-green font-bold flex items-center gap-2 text-lg">
+                    <span>Выдал:</span>
+                    {log.moderator_avatar && (
+                         <img 
+                            src={log.moderator_avatar} 
+                            alt={log.moderator_name} 
+                            className="w-6 h-6 rounded-full border border-hogwarts-green object-cover"
+                        />
+                    )}
+                    <span>{log.moderator_name}</span>
+                </div>
+            ) : (
+                <>
+                    {log.type === 'exam' && (
+                        <span className="bg-hogwarts-purple text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
+                            Экзамен
+                        </span>
+                    )}
+                    <Calendar className="w-4 h-4" />
+                    {new Date(log.created_at).toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}
+                </>
             )}
-            <Calendar className="w-4 h-4" />
-            {new Date(log.created_at).toLocaleDateString('ru-RU', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            })}
+            
             {log.post_link && (
                 <a 
                 href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
@@ -157,9 +177,11 @@ const LogItem: React.FC<{
                     Экзамен
                 </div>
             )}
-            <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
-            {log.word_count} слов
-            </div>
+            {!isGranted && (
+                <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
+                {log.word_count} слов
+                </div>
+            )}
             {(isOwner || canModerate) && (
                 <button 
                     onClick={handleDelete}
@@ -173,7 +195,7 @@ const LogItem: React.FC<{
       </div>
       
       <div className="prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif relative z-10">
-        {isExpanded ? (
+        {isExpanded || isGranted ? (
           paragraphs.map((paragraph, idx) => (
             <p key={idx} className="mb-4">{paragraph}</p>
           ))
@@ -188,22 +210,25 @@ const LogItem: React.FC<{
       </div>
 
       <div className="mt-4 flex justify-between items-center relative z-10">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 text-hogwarts-blue hover:text-hogwarts-red font-bold font-serif transition-colors px-4 py-2 rounded-full hover:bg-hogwarts-blue/5"
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              Свернуть
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              Развернуть
-            </>
-          )}
-        </button>
+        {!isGranted && (
+            <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-2 text-hogwarts-blue hover:text-hogwarts-red font-bold font-serif transition-colors px-4 py-2 rounded-full hover:bg-hogwarts-blue/5"
+            >
+            {isExpanded ? (
+                <>
+                <ChevronUp className="w-4 h-4" />
+                Свернуть
+                </>
+            ) : (
+                <>
+                <ChevronDown className="w-4 h-4" />
+                Развернуть
+                </>
+            )}
+            </button>
+        )}
+        {isGranted && <div />} {/* Spacer */}
 
         {canModerate && log.status === 'pending' && (
             <div className="flex flex-col items-end gap-2">
@@ -417,6 +442,14 @@ export const SkillDetail: React.FC = () => {
   const isOwner = user?.id === targetUserId;
 
   const sortedLogs = [...logs].sort((a, b) => {
+    // 1. Pinned (Granted) skills first
+    const isGrantedA = a.status === 'exam_passed' && a.word_count === 0 && a.moderator_approval_id;
+    const isGrantedB = b.status === 'exam_passed' && b.word_count === 0 && b.moderator_approval_id;
+    
+    if (isGrantedA && !isGrantedB) return -1;
+    if (!isGrantedA && isGrantedB) return 1;
+
+    // 2. Date sort
     const dateA = new Date(a.created_at).getTime();
     const dateB = new Date(b.created_at).getTime();
     return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
@@ -453,7 +486,7 @@ export const SkillDetail: React.FC = () => {
 
           <div className={`relative z-10 flex flex-col md:flex-row justify-between px-6 py-6 md:px-12 md:py-8 gap-4 md:gap-0 ${isAdmin ? 'items-center md:items-start' : 'items-center md:items-end'}`}>
             <div>
-                <h1 className="text-2xl md:text-4xl text-hogwarts-gold font-seminaria font-normal flex items-center gap-4">
+                <h1 className="font-seminaria font-normal flex items-center gap-4 text-hogwarts-gold">
                     {decodedSkillName === 'Трансгрессия' ? (
                         <img 
                             src={transgressionSvg} 
@@ -506,7 +539,7 @@ export const SkillDetail: React.FC = () => {
                         <Feather className="w-12 h-12 shrink-0" />
                     )}
                     <div className="flex flex-col">
-                        <span>{decodedSkillName}</span>
+                        <span className={`whitespace-nowrap ${getSkillHeaderClass(decodedSkillName)}`}>{decodedSkillName}</span>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-white text-base md:text-lg font-century">
                                 {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}

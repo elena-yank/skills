@@ -82,6 +82,23 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS moderator_approved_at TIMESTAMPTZ
       `);
 
+      // Add skill_metadata table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS skill_metadata (
+          skill_name TEXT PRIMARY KEY,
+          responsible_person_name TEXT,
+          responsible_person_link TEXT,
+          description TEXT,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      
+      // Add description column if it doesn't exist (for existing tables)
+      await client.query(`
+        ALTER TABLE skill_metadata 
+        ADD COLUMN IF NOT EXISTS description TEXT
+      `);
+
       await client.query('COMMIT');
       console.log('Migrations completed successfully');
     } catch (err) {
@@ -253,15 +270,22 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 app.get('/api/logs', async (req, res) => {
   const { user_id, skill_name } = req.query;
   try {
-    let query = 'SELECT * FROM practice_logs WHERE user_id = $1';
+    let query = `
+        SELECT pl.*, 
+               mw.name as moderator_name,
+               mw.avatar_url as moderator_avatar
+        FROM practice_logs pl
+        LEFT JOIN wizards mw ON pl.moderator_approval_id = mw.id
+        WHERE pl.user_id = $1
+    `;
     const params = [user_id];
     
     if (skill_name) {
-        query += ' AND skill_name = $2';
+        query += ' AND pl.skill_name = $2';
         params.push(skill_name);
     }
     
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY pl.created_at DESC';
     
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -360,6 +384,74 @@ app.delete('/api/logs/:id', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Admin: Grant Skill (Manual +100%)
+app.post('/api/admin/skills/grant', async (req, res) => {
+    const { user_id, skill_name, reason, moderator_id } = req.body;
+    
+    try {
+        // Verify moderator/admin permissions
+        const modRes = await pool.query('SELECT * FROM wizards WHERE id = $1', [moderator_id]);
+        if (modRes.rows.length === 0) return res.status(404).json({ error: 'Moderator not found' });
+        const moderator = modRes.rows[0];
+        
+        const isGlobalAdmin = moderator.role === 'admin';
+        const isModerator = moderator.role === 'moderator' && moderator.managed_skills && moderator.managed_skills.includes(skill_name);
+        
+        if (!isGlobalAdmin && !isModerator) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        // Insert log with status 'exam_passed' (forces 100%)
+        const result = await pool.query(
+            `INSERT INTO practice_logs 
+            (user_id, skill_name, content, word_count, post_link, type, status, moderator_approval_id, moderator_approved_at, created_at) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) 
+            RETURNING *`,
+            [user_id, skill_name, reason, 0, '', 'practice', 'exam_passed', moderator_id]
+        );
+        
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Skills Metadata: Get All
+app.get('/api/skills/metadata', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM skill_metadata');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Skills Metadata: Update
+app.post('/api/skills/metadata', async (req, res) => {
+    const { skill_name, responsible_person_name, responsible_person_link, description } = req.body;
+    
+    try {
+        const result = await pool.query(
+            `INSERT INTO skill_metadata (skill_name, responsible_person_name, responsible_person_link, description, updated_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT (skill_name) 
+             DO UPDATE SET 
+                responsible_person_name = COALESCE(EXCLUDED.responsible_person_name, skill_metadata.responsible_person_name),
+                responsible_person_link = COALESCE(EXCLUDED.responsible_person_link, skill_metadata.responsible_person_link),
+                description = COALESCE(EXCLUDED.description, skill_metadata.description),
+                updated_at = NOW()
+             RETURNING *`,
+            [skill_name, responsible_person_name, responsible_person_link, description]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Logs: Update Status (Admin/Moderator)

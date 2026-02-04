@@ -22,7 +22,16 @@ export interface PracticeLog {
   moderator_approval_id?: string;
   moderator_approved_at?: string;
   moderator_name?: string; // Joined moderator name
+  moderator_avatar?: string; // Joined moderator avatar
   assigned_moderators?: string; // Names of assigned moderators
+}
+
+export interface SkillMetadata {
+  skill_name: string;
+  responsible_person_name?: string;
+  responsible_person_link?: string;
+  description?: string;
+  updated_at?: string;
 }
 
 export interface ApiClient {
@@ -40,6 +49,11 @@ export interface ApiClient {
     createUser: (user: Pick<User, 'name' | 'role'> & { password: string }) => Promise<User>;
     updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills'>>) => Promise<void>;
     deleteUser: (id: string) => Promise<void>;
+    grantSkill: (userId: string, skillName: string, reason: string, moderatorId: string) => Promise<void>;
+  };
+  skills: {
+    getMetadata: () => Promise<SkillMetadata[]>;
+    updateMetadata: (data: SkillMetadata) => Promise<SkillMetadata>;
   };
   logs: {
     list: (userId: string, skillName?: string) => Promise<PracticeLog[]>;

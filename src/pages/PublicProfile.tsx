@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp, Info, Maximize2 } from 'lucide-react';
-import { SKILL_CATEGORIES } from '../store';
+import { SKILL_CATEGORIES, useStore } from '../store';
 import { SkillInfoModal } from '../components/SkillInfoModal';
 import { ImageModal } from '../components/ImageModal';
+import { GrantSkillModal } from '../components/GrantSkillModal';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
-import { calculateSkillProgress, calculateSpecialSkillStatus, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
+import { calculateSkillProgress, calculateSpecialSkillStatus, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS, getSkillTitleClass } from '../lib/skillUtils';
 import { User } from '../lib/api/types';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -33,6 +34,9 @@ export const PublicProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user: currentUser } = useStore();
+  const [grantModalOpen, setGrantModalOpen] = useState(false);
+  const [grantTargetSkill, setGrantTargetSkill] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   const getDeclension = (number: number, titles: [string, string, string]) => {
@@ -91,88 +95,94 @@ export const PublicProfile: React.FC = () => {
     }));
   };
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!username) return;
+  const fetchProfile = async () => {
+    if (!username) return;
 
-      setIsLoading(true);
-      try {
-        // Replace underscores with spaces to find the user in DB
-        const dbName = username?.replace(/_/g, ' ');
+    setIsLoading(true);
+    try {
+      // Replace underscores with spaces to find the user in DB
+      const dbName = username?.replace(/_/g, ' ');
 
-        // 1. Find user by name (case insensitive search)
-        const userData = await api.auth.getUserByName(dbName || '');
+      // 1. Find user by name (case insensitive search)
+      const userData = await api.auth.getUserByName(dbName || '');
 
-        if (!userData) {
-          throw new Error('Волшебник не найден');
-        }
-        setUser(userData);
-
-        // 2. Fetch logs
-        const logsData = await api.logs.list(userData.id);
-
-        // 3. Calculate progress
-        const progressMap = new Map<string, number>();
-        const examPassedMap = new Map<string, boolean>();
-        const applicationStatusMap = new Map<string, string>();
-        
-        logsData?.forEach(log => {
-          if (log.status === 'approved') {
-              const current = progressMap.get(log.skill_name) || 0;
-              progressMap.set(log.skill_name, current + 1);
-          }
-          if (log.status === 'exam_passed') {
-              examPassedMap.set(log.skill_name, true);
-              const current = progressMap.get(log.skill_name) || 0;
-              progressMap.set(log.skill_name, current + 1);
-          }
-          if (log.type === 'application') {
-              // Prefer approved status if multiple exist (unlikely but safe)
-              const existing = applicationStatusMap.get(log.skill_name);
-              if (existing !== 'approved') {
-                  applicationStatusMap.set(log.skill_name, log.status);
-              }
-          }
-        });
-
-        const calculatedSkills = ALL_SKILLS.map(name => {
-            const count = progressMap.get(name) || 0;
-            const hasExamPassed = examPassedMap.get(name) || false;
-            
-            if (['Метаморфомагия', 'Провидение'].includes(name)) {
-                const { level, progress } = calculateSpecialSkillStatus(count);
-                
-                return {
-                    id: name,
-                    name,
-                    progress,
-                    level,
-                    applicationStatus: applicationStatusMap.get(name),
-                    approvedCount: count
-                };
-            }
-
-            return {
-                id: name,
-                name,
-                progress: calculateSkillProgress(name, count, hasExamPassed),
-                applicationStatus: applicationStatusMap.get(name),
-                approvedCount: count,
-                hasExamPassed
-            };
-        });
-
-        setSkills(calculatedSkills);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
+      if (!userData) {
+        throw new Error('Волшебник не найден');
       }
-    };
+      setUser(userData);
 
+      // 2. Fetch logs
+      const logsData = await api.logs.list(userData.id);
+
+      // 3. Calculate progress
+      const progressMap = new Map<string, number>();
+      const examPassedMap = new Map<string, boolean>();
+      const applicationStatusMap = new Map<string, string>();
+      
+      logsData?.forEach(log => {
+        if (log.status === 'approved') {
+            const current = progressMap.get(log.skill_name) || 0;
+            progressMap.set(log.skill_name, current + 1);
+        }
+        if (log.status === 'exam_passed') {
+            examPassedMap.set(log.skill_name, true);
+            const current = progressMap.get(log.skill_name) || 0;
+            progressMap.set(log.skill_name, current + 1);
+        }
+        if (log.type === 'application') {
+            // Prefer approved status if multiple exist (unlikely but safe)
+            const existing = applicationStatusMap.get(log.skill_name);
+            if (existing !== 'approved') {
+                applicationStatusMap.set(log.skill_name, log.status);
+            }
+        }
+      });
+
+      const calculatedSkills = ALL_SKILLS.map(name => {
+          const count = progressMap.get(name) || 0;
+          const hasExamPassed = examPassedMap.get(name) || false;
+          
+          if (['Метаморфомагия', 'Провидение'].includes(name)) {
+              const { level, progress } = calculateSpecialSkillStatus(count);
+              
+              return {
+                  id: name,
+                  name,
+                  progress,
+                  level,
+                  applicationStatus: applicationStatusMap.get(name),
+                  approvedCount: count
+              };
+          }
+
+          return {
+              id: name,
+              name,
+              progress: calculateSkillProgress(name, count, hasExamPassed),
+              applicationStatus: applicationStatusMap.get(name),
+              approvedCount: count,
+              hasExamPassed
+          };
+      });
+
+      setSkills(calculatedSkills);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchProfile();
   }, [username]);
+
+  const handleGrantSkill = async (reason: string) => {
+        if (!grantTargetSkill || !user || !currentUser) return;
+        await api.admin.grantSkill(user.id, grantTargetSkill, reason, currentUser.id);
+        await fetchProfile();
+  };
 
   if (isLoading) {
     return (
@@ -301,6 +311,8 @@ export const PublicProfile: React.FC = () => {
                             const skill = skills.find(s => s.name === skillName);
                             if (!skill) return null;
                             
+                            const canModerate = currentUser?.role === 'admin' || (currentUser?.role === 'moderator' && currentUser?.managed_skills?.includes(skill.name));
+
                             return (
                                 <div 
                                 key={`${category.name}-${skill.id}`} 
@@ -309,22 +321,20 @@ export const PublicProfile: React.FC = () => {
                                 style={{ backgroundImage: `url(${scrollImg})` }}
                                 >
                                 <div className="flex flex-col justify-between items-center mb-2 gap-1 md:gap-0">
-                                    <div className="flex items-center gap-2 justify-center w-full relative">
-                                        <h3 className="text-lg md:text-2xl font-seminaria font-bold text-hogwarts-blue text-center">
-                                            {skill.name}
+                                    <div className="flex items-center gap-1 justify-center w-full relative px-1">
+                                        <h3 className={`font-seminaria font-bold text-hogwarts-blue text-center whitespace-nowrap ${getSkillTitleClass(skill.name)}`}>
+                                            {skill.name === 'Самостоятельная левитация' ? 'Самост. левитация' : skill.name}
                                         </h3>
-                                        {SKILL_DESCRIPTIONS[skill.name] && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setSelectedSkillInfo(skill.name);
-                                                }}
-                                                className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10"
-                                                title="Информация о навыке"
-                                            >
-                                                <Info className="w-5 h-5" />
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedSkillInfo(skill.name);
+                                            }}
+                                            className="p-1 text-hogwarts-blue/50 hover:text-hogwarts-blue transition-colors rounded-full hover:bg-hogwarts-blue/10 shrink-0"
+                                            title="Информация о навыке"
+                                        >
+                                            <Info className="w-4 h-4 md:w-5 md:h-5" />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -342,7 +352,7 @@ export const PublicProfile: React.FC = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10">
+                                <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10 w-full">
                                     {/* Tooltip positioned relative to the container (center of progress bar) */}
                                     {getSkillNextStepInfo(skill) && (
                                         <div className={`
@@ -368,6 +378,21 @@ export const PublicProfile: React.FC = () => {
                                     {skill.level && (
                                         <span className="text-hogwarts-blue">{skill.level}-й уровень</span>
                                     )}
+                                    
+                                    {canModerate && skill.progress < 100 && (
+                                         <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setGrantTargetSkill(skill.name);
+                                                setGrantModalOpen(true);
+                                            }}
+                                            className="absolute right-0 top-1/2 -translate-y-1/2 bg-hogwarts-green text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-md hover:bg-hogwarts-green/90 transition-colors z-20"
+                                            title="Повысить уровень до 100%"
+                                        >
+                                            +100%
+                                        </button>
+                                    )}
+
                                     {['Метаморфомагия', 'Провидение'].includes(skill.name) && skill.applicationStatus && skill.applicationStatus !== 'approved' && (
                                         <div className="flex flex-col items-center gap-1">
                                             <span className={`
@@ -405,6 +430,14 @@ export const PublicProfile: React.FC = () => {
         onClose={() => setSelectedSkillInfo(null)}
         title={selectedSkillInfo || ''}
         description={selectedSkillInfo ? SKILL_DESCRIPTIONS[selectedSkillInfo] : ''}
+      />
+
+      <GrantSkillModal 
+        isOpen={grantModalOpen}
+        onClose={() => setGrantModalOpen(false)}
+        onConfirm={handleGrantSkill}
+        skillName={grantTargetSkill || ''}
+        userName={user?.name || ''}
       />
     </div>
   );
