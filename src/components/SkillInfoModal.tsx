@@ -119,6 +119,7 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
 
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
+      const scrollTop = textarea.scrollTop;
       const text = textarea.value;
       const before = text.substring(0, start);
       const selection = text.substring(start, end);
@@ -128,8 +129,9 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
       setEditedDescription(newText);
 
       setTimeout(() => {
-          textarea.focus();
+          textarea.focus({ preventScroll: true });
           textarea.setSelectionRange(start + startTag.length, end + startTag.length);
+          textarea.scrollTop = scrollTop;
       }, 0);
   };
 
