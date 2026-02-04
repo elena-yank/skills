@@ -6,8 +6,9 @@ import { calculateSkillProgress, calculateSpecialSkillStatus } from '../lib/skil
 export interface Wizard {
   id: string;
   name: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'moderator';
   avatar_url?: string;
+  managed_skills?: string[];
 }
 
 export interface Skill {
@@ -100,28 +101,112 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      if (user.role === 'admin' && !viewAsUser) {
-         // Admin logic
+      if ((user.role === 'admin' || user.role === 'moderator') && !viewAsUser) {
+         // Admin/Moderator logic: Combine Global Stats (for Dashboard) + Personal Stats (for Progress)
          const data = await api.logs.listAll(); 
          
-         const approvedMap = new Map<string, number>();
-         const pendingMap = new Map<string, number>();
+         // 1. Dashboard Stats (Pending/Approved Global)
+         const globalApprovedMap = new Map<string, number>();
+         const globalPendingMap = new Map<string, number>();
          
+         // 2. Personal Stats
+         const personalApprovedMap = new Map<string, number>();
+         const personalExamPassedMap = new Map<string, boolean>();
+         const personalSpecialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
+
          data?.forEach(log => {
-             if (log.status === 'approved') {
-                 approvedMap.set(log.skill_name, (approvedMap.get(log.skill_name) || 0) + 1);
-             } else if (log.status === 'pending') {
-                 pendingMap.set(log.skill_name, (pendingMap.get(log.skill_name) || 0) + 1);
+             // --- Dashboard Stats Logic ---
+             // For moderators, only count logs for managed skills
+             const isManaged = user.role === 'admin' || (user.role === 'moderator' && user.managed_skills?.includes(log.skill_name));
+             
+             if (isManaged) {
+                 if (log.status === 'approved') {
+                     globalApprovedMap.set(log.skill_name, (globalApprovedMap.get(log.skill_name) || 0) + 1);
+                 } else if (log.status === 'pending') {
+                     globalPendingMap.set(log.skill_name, (globalPendingMap.get(log.skill_name) || 0) + 1);
+                 }
+             }
+
+             // --- Personal Stats Logic ---
+             if (log.user_id === user.id) {
+                 // Handle application logs
+                 if (log.type === 'application') {
+                     if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
+                         const current = personalSpecialSkillAppStatus.get(log.skill_name);
+                         if (current === 'approved') return; // Already approved
+                         
+                         if (log.status === 'approved') {
+                             personalSpecialSkillAppStatus.set(log.skill_name, 'approved');
+                         } else if (log.status === 'pending') {
+                             personalSpecialSkillAppStatus.set(log.skill_name, 'pending');
+                         } else if (log.status === 'rejected' && current !== 'pending') {
+                             personalSpecialSkillAppStatus.set(log.skill_name, 'rejected');
+                         }
+                     }
+                     return; // Don't count application logs for progress
+                 }
+
+                 if (log.status === 'approved') {
+                    const current = personalApprovedMap.get(log.skill_name) || 0;
+                    personalApprovedMap.set(log.skill_name, current + 1);
+                 }
+                 if (log.status === 'exam_passed') {
+                     personalExamPassedMap.set(log.skill_name, true);
+                     const current = personalApprovedMap.get(log.skill_name) || 0;
+                     personalApprovedMap.set(log.skill_name, current + 1);
+                 }
              }
          });
          
-         const updatedSkills = DEFAULT_SKILLS.map(name => ({
-             id: name,
-             name,
-             progress: 0, 
-             approvedCount: approvedMap.get(name) || 0,
-             pendingCount: pendingMap.get(name) || 0
-         }));
+         const updatedSkills = DEFAULT_SKILLS.map(name => {
+             // Calculate Personal Progress
+             const personalCount = personalApprovedMap.get(name) || 0;
+             const hasExamPassed = personalExamPassedMap.get(name) || false;
+             
+             let progress = 0;
+             let level = undefined;
+             let isLocked = false;
+             let applicationStatus = undefined;
+
+             if (['Метаморфомагия', 'Провидение'].includes(name)) {
+                const appStatus = (personalSpecialSkillAppStatus.get(name) || 'none') as 'pending' | 'approved' | 'rejected' | 'none';
+                const isUnlocked = appStatus === 'approved';
+                applicationStatus = appStatus;
+                
+                if (!isUnlocked) {
+                    isLocked = true;
+                    level = 1;
+                } else {
+                    const status = calculateSpecialSkillStatus(personalCount);
+                    level = status.level;
+                    progress = status.progress;
+                }
+             } else {
+                 progress = calculateSkillProgress(name, personalCount, hasExamPassed);
+             }
+
+             return {
+                 id: name,
+                 name,
+                 progress, // Personal Progress
+                 isLocked,
+                 level,
+                 applicationStatus,
+                 hasExamPassed,
+                 
+                 // Dashboard Stats
+                 approvedCount: personalCount, // Use PERSONAL count for display logic (e.g. "15 posts left")
+                 pendingCount: globalPendingMap.get(name) || 0, // Pending tasks for admin
+                 globalApprovedCount: globalApprovedMap.get(name) || 0 // Optional: if needed
+             };
+         }).sort((a, b) => b.progress - a.progress); // Sort by personal progress? Or pending count?
+         // Maybe sort by pending count if in admin view? 
+         // But user complained about progress resetting.
+         // Let's keep sort by progress for now, or maybe primary sort pending, secondary progress?
+         // Standard admin view usually prioritizes pending. 
+         // But the user issue implies they care about progress.
+         // Let's stick to progress sort or maybe stable sort.
+         
          set({ skills: updatedSkills });
       } else {
          // Regular user logic
@@ -243,10 +328,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateLogStatus: async (logId: string, status: 'approved' | 'rejected' | 'exam_passed') => {
       const { user, fetchSkills } = get();
-      if (!user || user.role !== 'admin') return;
+      if (!user || (user.role !== 'admin' && user.role !== 'moderator')) return;
 
       try {
-          await api.logs.updateStatus(logId, status);
+          await api.logs.updateStatus(logId, status, user.id);
           await fetchSkills();
       } catch (error) {
           console.error('Error updating log status:', error);

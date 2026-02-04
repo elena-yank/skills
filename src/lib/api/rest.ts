@@ -126,11 +126,11 @@ export const restApi: ApiClient = {
         throw new Error(data.error);
       }
     },
-    updateStatus: async (id, status) => {
+    updateStatus: async (id, status, userId) => {
         const res = await fetch(`${API_URL}/logs/${id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify({ status, user_id: userId }),
         });
         if (!res.ok) {
             const data = await res.json();

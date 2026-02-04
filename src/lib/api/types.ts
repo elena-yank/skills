@@ -1,10 +1,11 @@
 export interface User {
   id: string;
   name: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'moderator';
   created_at?: string; // Optional for list display
   password?: string; // Only for admin display/edit, be careful
   avatar_url?: string;
+  managed_skills?: string[]; // For moderators
 }
 
 export interface PracticeLog {
@@ -18,6 +19,10 @@ export interface PracticeLog {
   status: 'pending' | 'approved' | 'rejected' | 'exam_passed';
   type?: 'practice' | 'exam' | 'application';
   wizards?: { name: string; avatar_url?: string }; // Joined user data
+  moderator_approval_id?: string;
+  moderator_approved_at?: string;
+  moderator_name?: string; // Joined moderator name
+  assigned_moderators?: string; // Names of assigned moderators
 }
 
 export interface ApiClient {
@@ -33,7 +38,7 @@ export interface ApiClient {
   admin: {
     listUsers: () => Promise<User[]>;
     createUser: (user: Pick<User, 'name' | 'role'> & { password: string }) => Promise<User>;
-    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name'>>) => Promise<void>;
+    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills'>>) => Promise<void>;
     deleteUser: (id: string) => Promise<void>;
   };
   logs: {
@@ -41,6 +46,6 @@ export interface ApiClient {
     listAll: (skillName?: string, status?: string) => Promise<PracticeLog[]>; // For admin
     create: (log: Omit<PracticeLog, 'id' | 'created_at' | 'status'>) => Promise<PracticeLog>;
     delete: (id: string, userId: string) => Promise<void>;
-    updateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed') => Promise<void>;
+    updateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed', userId: string) => Promise<void>;
   };
 }

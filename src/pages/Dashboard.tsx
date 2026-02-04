@@ -134,7 +134,7 @@ export const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'moderator') {
       fetchSkills(!adminView);
     } else {
       fetchSkills();
@@ -157,8 +157,19 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const isRealAdmin = user?.role === 'admin';
+  const isRealAdmin = user?.role === 'admin' || user?.role === 'moderator';
   const showAdminInterface = isRealAdmin && adminView;
+
+  // Filter categories for Moderator view
+  const visibleCategories = React.useMemo(() => {
+    if (user?.role === 'moderator' && showAdminInterface) {
+        return SKILL_CATEGORIES.map(cat => ({
+            ...cat,
+            skills: cat.skills.filter(skill => user.managed_skills?.includes(skill))
+        })).filter(cat => cat.skills.length > 0);
+    }
+    return SKILL_CATEGORIES;
+  }, [user, showAdminInterface]);
 
   return (
     <div className="min-h-screen relative">
@@ -260,7 +271,7 @@ export const Dashboard: React.FC = () => {
                   {isRealAdmin && (
                     <button
                       onClick={() => setAdminView(!adminView)}
-                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm mt-2 md:mt-0"
+                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm mt-2 md:mt-0 w-full md:w-auto"
                     >
                       {adminView ? 'Мои навыки' : 'Панель администратора'}
                     </button>
@@ -288,7 +299,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <div className="space-y-12">
-          {SKILL_CATEGORIES.map((category) => (
+          {visibleCategories.map((category) => (
             <div key={category.name} className="relative">
               <button 
                 onClick={() => toggleCategory(category.name)}

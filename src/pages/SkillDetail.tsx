@@ -30,7 +30,10 @@ const LogItem: React.FC<{
   const [showConfirm, setShowConfirm] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const { user } = useStore();
-  const isAdmin = user?.role === 'admin';
+  
+  const isGlobalAdmin = user?.role === 'admin';
+  const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(log.skill_name);
+  const canModerate = isGlobalAdmin || isModerator;
   
   // Split content into paragraphs
   const paragraphs = log.content.split('\n').filter(p => p.trim().length > 0);
@@ -50,14 +53,14 @@ const LogItem: React.FC<{
       className="bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden"
     >
       {/* Overlays for User Status */}
-      {!isAdmin && log.status === 'pending' && (
+      {!canModerate && log.status === 'pending' && (
           <div className="absolute inset-0 bg-white/60 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
              <div className="bg-[#D3A625] text-hogwarts-red px-6 py-3 rounded-lg shadow-xl font-magical font-bold text-xl border-2 border-hogwarts-red pointer-events-auto z-40 opacity-100 text-center mx-4">
                 {log.type === 'exam' ? 'Экзаменационная работа ожидает проверки' : 'Текст ожидает проверку'}
              </div>
           </div>
       )}
-      {!isAdmin && log.status === 'rejected' && (
+      {!canModerate && log.status === 'rejected' && (
           <div className="absolute inset-0 bg-red-100/80 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
              <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100 text-center mx-4">
                 Ваш текст был отклонён, обратитесь к администрации
@@ -157,8 +160,7 @@ const LogItem: React.FC<{
             <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
             {log.word_count} слов
             </div>
-            {/* Delete button available for owner or admin (if we wanted admin to delete, but sticking to owner per prompt mostly, though admin usually can) */}
-            {(isOwner || isAdmin) && (
+            {(isOwner || canModerate) && (
                 <button 
                     onClick={handleDelete}
                     className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1 relative z-50 ml-auto md:ml-0"
@@ -203,46 +205,70 @@ const LogItem: React.FC<{
           )}
         </button>
 
-        {isAdmin && log.status === 'pending' && (
-            <div className="flex gap-3">
-                <button
-                    onClick={() => onUpdateStatus(log.id, 'rejected')}
-                    className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-bold font-serif"
-                >
-                    <X className="w-4 h-4" />
-                    Отклонить
-                </button>
-                <button
-                    onClick={() => onUpdateStatus(log.id, 'approved')}
-                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
-                    title="Принять: Добавить в историю (без прогресса если это экзамен)"
-                >
-                    <Check className="w-4 h-4" />
-                    Принять
-                </button>
-                {log.type === 'exam' && (
-                    <button
-                        onClick={() => onUpdateStatus(log.id, 'exam_passed')}
-                        className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
-                        title="Экзамен сдан: Прогресс станет 100%"
-                    >
-                        <GraduationCap className="w-4 h-4" />
-                        Экзамен сдан
-                    </button>
+        {canModerate && log.status === 'pending' && (
+            <div className="flex flex-col items-end gap-2">
+                {/* Если админ и есть назначенные модераторы, но нет одобрения */}
+                {isGlobalAdmin && log.assigned_moderators && !log.moderator_approval_id ? (
+                     <div className="text-hogwarts-ink/60 font-bold font-serif text-right">
+                        Ожидается одобрение экзаменатора: {log.assigned_moderators}
+                     </div>
+                ) : (
+                    <>
+                        {log.moderator_name && (
+                            <div className="text-hogwarts-gold text-sm font-bold">
+                                Одобрено экзаменатором: {log.moderator_name}
+                            </div>
+                        )}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => onUpdateStatus(log.id, 'rejected')}
+                                className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-bold font-serif"
+                            >
+                                <X className="w-4 h-4" />
+                                Отклонить
+                            </button>
+                            
+                            {!(isModerator && log.moderator_approval_id === user?.id) ? (
+                                <button
+                                    onClick={() => onUpdateStatus(log.id, 'approved')}
+                                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                                    title={isModerator ? "Одобрить как экзаменатор" : "Принять: Добавить в историю"}
+                                >
+                                    <Check className="w-4 h-4" />
+                                    {isModerator ? 'Одобрить' : 'Принять'}
+                                </button>
+                            ) : (
+                                <span className="text-hogwarts-green font-bold text-sm flex items-center gap-1 self-center px-4 py-2 border border-transparent">
+                                    <Check className="w-4 h-4" /> Вы одобрили
+                                </span>
+                            )}
+
+                            {log.type === 'exam' && (
+                                <button
+                                    onClick={() => onUpdateStatus(log.id, 'exam_passed')}
+                                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                                    title="Экзамен сдан: Прогресс станет 100%"
+                                >
+                                    <GraduationCap className="w-4 h-4" />
+                                    Экзамен сдан
+                                </button>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
         )}
-         {isAdmin && log.status === 'approved' && (
+         {canModerate && log.status === 'approved' && (
             <div className="text-hogwarts-green font-bold flex items-center gap-2 px-4 py-2">
                 <Check className="w-5 h-5" /> Одобрено
             </div>
         )}
-         {isAdmin && log.status === 'exam_passed' && (
+         {canModerate && log.status === 'exam_passed' && (
             <div className="text-[#006633] font-bold flex items-center gap-2 px-4 py-2">
                 <GraduationCap className="w-5 h-5" /> Экзамен сдан
             </div>
         )}
-         {isAdmin && log.status === 'rejected' && (
+         {canModerate && log.status === 'rejected' && (
             <div className="text-hogwarts-red font-bold flex items-center gap-2 px-4 py-2">
                 <X className="w-5 h-5" /> Отклонено
             </div>
@@ -269,7 +295,11 @@ export const SkillDetail: React.FC = () => {
 
   // If username is present, we are viewing a specific user's history (Public Profile mode),
   // so we should NOT show the global admin dashboard even if the user is an admin.
-  const isAdmin = user?.role === 'admin' && !forcePersonalView && !username;
+  // const isAdmin = user?.role === 'admin' && !forcePersonalView && !username;
+  
+  const isGlobalAdmin = user?.role === 'admin';
+  const isModerator = user?.role === 'moderator' && skillName && user.managed_skills?.includes(decodeURIComponent(skillName));
+  const isAdmin = (isGlobalAdmin || isModerator) && !forcePersonalView && !username;
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -353,16 +383,33 @@ export const SkillDetail: React.FC = () => {
     const logToUpdate = logs.find(log => log.id === id);
     if (!logToUpdate) return;
 
-    // Optimistically remove locally
-    setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
+    // Logic to determine optimistic update behavior
+    const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(decodeURIComponent(skillName || ''));
+    const isApproval = status === 'approved' || status === 'exam_passed';
+    // If moderator approves, it stays in pending list (just marked), unless we are viewing approved logs (unlikely for action)
+    const shouldKeepInList = isModerator && isApproval && viewMode === 'pending';
+
+    if (shouldKeepInList) {
+         setLogs(prevLogs => prevLogs.map(l => l.id === id ? { 
+             ...l, 
+             moderator_approval_id: user?.id,
+             moderator_name: user?.name
+         } : l));
+    } else {
+         setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
+    }
 
     try {
         await updateLogStatus(id, status);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Failed to update status", e);
-        alert("Не удалось обновить статус свитка.");
+        alert(e.message || "Не удалось обновить статус свитка.");
         // Rollback
-        setLogs(prevLogs => [...prevLogs, logToUpdate]);
+        if (shouldKeepInList) {
+             setLogs(prevLogs => prevLogs.map(l => l.id === id ? logToUpdate : l));
+        } else {
+             setLogs(prevLogs => [...prevLogs, logToUpdate]);
+        }
     }
   };
 

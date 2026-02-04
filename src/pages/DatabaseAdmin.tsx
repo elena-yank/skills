@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { useStore } from '../store';
-import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil } from 'lucide-react';
+import { useStore, SKILL_CATEGORIES } from '../store';
+import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { User } from '../lib/api/types';
 
@@ -15,7 +15,24 @@ export const DatabaseAdmin: React.FC = () => {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+  const [newUserRole, setNewUserRole] = useState<'user' | 'admin' | 'moderator'>('user');
+
+  // Permission Modal state
+  const [permissionModal, setPermissionModal] = useState<{
+    isOpen: boolean;
+    user: User | null;
+    role: 'user' | 'admin' | 'moderator';
+    managedSkills: string[];
+  }>({
+    isOpen: false,
+    user: null,
+    role: 'user',
+    managedSkills: []
+  });
+
+  const allSkills = React.useMemo(() => 
+    Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills))), 
+  []);
 
   // Delete confirmation state
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({
@@ -107,17 +124,41 @@ export const DatabaseAdmin: React.FC = () => {
     }
   };
 
-  const toggleRole = async (user: User) => {
-    const newRole = user.role === 'admin' ? 'user' : 'admin';
-    if (!window.confirm(`Изменить роль ${user.name} на ${newRole}?`)) return;
+  const openPermissionModal = (user: User) => {
+    setPermissionModal({
+      isOpen: true,
+      user,
+      role: user.role,
+      managedSkills: user.managed_skills || []
+    });
+  };
 
+  const handleSavePermissions = async () => {
+    if (!permissionModal.user) return;
     try {
-      await api.admin?.updateUser(user.id, { role: newRole });
-      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
+      await api.admin?.updateUser(permissionModal.user.id, {
+        role: permissionModal.role,
+        managed_skills: permissionModal.managedSkills
+      });
+      setUsers(users.map(u => u.id === permissionModal.user!.id ? {
+        ...u,
+        role: permissionModal.role,
+        managed_skills: permissionModal.managedSkills
+      } : u));
+      setPermissionModal(prev => ({ ...prev, isOpen: false }));
     } catch (error) {
-      console.error('Error updating role:', error);
-      alert('Ошибка при изменении роли');
+      console.error('Error updating permissions:', error);
+      alert('Ошибка при обновлении прав');
     }
+  };
+
+  const toggleSkillPermission = (skill: string) => {
+    setPermissionModal(prev => {
+        const skills = prev.managedSkills.includes(skill)
+            ? prev.managedSkills.filter(s => s !== skill)
+            : [...prev.managedSkills, skill];
+        return { ...prev, managedSkills: skills };
+    });
   };
 
   const togglePasswordVisibility = (id: string) => {
@@ -238,10 +279,11 @@ export const DatabaseAdmin: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Роль</label>
                 <select
                   value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin')}
+                  onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin' | 'moderator')}
                   className="w-full px-3 py-2 border rounded-md"
                 >
                   <option value="user">Участник</option>
+                  <option value="moderator">Полу-администратор</option>
                   <option value="admin">Администратор</option>
                 </select>
               </div>
@@ -254,6 +296,92 @@ export const DatabaseAdmin: React.FC = () => {
               </button>
             </form>
           </div>
+        )}
+
+        {permissionModal.isOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg p-6 max-w-2xl w-full shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900">Права доступа: {permissionModal.user?.name}</h3>
+                        <button onClick={() => setPermissionModal(prev => ({ ...prev, isOpen: false }))}>
+                            <X className="w-6 h-6 text-gray-500 hover:text-gray-700" />
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Роль</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="role" 
+                                        value="user" 
+                                        checked={permissionModal.role === 'user'}
+                                        onChange={() => setPermissionModal(prev => ({ ...prev, role: 'user' }))}
+                                    />
+                                    <span>Участник</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="role" 
+                                        value="moderator" 
+                                        checked={permissionModal.role === 'moderator'}
+                                        onChange={() => setPermissionModal(prev => ({ ...prev, role: 'moderator' }))}
+                                    />
+                                    <span>Полу-администратор</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="role" 
+                                        value="admin" 
+                                        checked={permissionModal.role === 'admin'}
+                                        onChange={() => setPermissionModal(prev => ({ ...prev, role: 'admin' }))}
+                                    />
+                                    <span>Администратор</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {permissionModal.role === 'moderator' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Разрешенные навыки</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 border p-4 rounded-md bg-gray-50">
+                                    {allSkills.map(skill => (
+                                        <label key={skill} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={permissionModal.managedSkills.includes(skill)}
+                                                onChange={() => toggleSkillPermission(skill)}
+                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm">{skill}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Выберите навыки, которые этот пользователь может администрировать.</p>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3 pt-4 border-t">
+                            <button
+                                onClick={() => setPermissionModal(prev => ({ ...prev, isOpen: false }))}
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={handleSavePermissions}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                            >
+                                Сохранить права
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         )}
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -314,10 +442,17 @@ export const DatabaseAdmin: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                      u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                      u.role === 'moderator' ? 'bg-blue-100 text-blue-800' :
+                      'bg-green-100 text-green-800'
                     }`}>
-                      {u.role === 'admin' ? 'Администратор' : 'Участник'}
+                      {u.role === 'admin' ? 'Администратор' : u.role === 'moderator' ? 'Полу-админ' : 'Участник'}
                     </span>
+                    {u.role === 'moderator' && u.managed_skills && u.managed_skills.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-1 max-w-[150px] truncate" title={u.managed_skills.join(', ')}>
+                            {u.managed_skills.length} навыков
+                        </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingPassword.userId === u.id ? (
@@ -363,11 +498,11 @@ export const DatabaseAdmin: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-3">
                       <button
-                        onClick={() => toggleRole(u)}
+                        onClick={() => openPermissionModal(u)}
                         className="text-indigo-600 hover:text-indigo-900"
-                        title="Сменить роль"
+                        title="Управление правами"
                       >
-                        {u.role === 'admin' ? <ShieldAlert className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+                        {u.role === 'admin' ? <ShieldAlert className="w-5 h-5" /> : <UserCog className="w-5 h-5" />}
                       </button>
                       <button
                         onClick={() => confirmDeleteUser(u)}

@@ -69,6 +69,19 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS avatar_url TEXT
       `);
 
+      // Add managed_skills column to wizards table (for semi-admins/moderators)
+      await client.query(`
+        ALTER TABLE wizards
+        ADD COLUMN IF NOT EXISTS managed_skills TEXT[] DEFAULT '{}'
+      `);
+
+      // Add moderator approval columns to practice_logs
+      await client.query(`
+        ALTER TABLE practice_logs
+        ADD COLUMN IF NOT EXISTS moderator_approval_id UUID REFERENCES wizards(id),
+        ADD COLUMN IF NOT EXISTS moderator_approved_at TIMESTAMPTZ
+      `);
+
       await client.query('COMMIT');
       console.log('Migrations completed successfully');
     } catch (err) {
@@ -263,9 +276,17 @@ app.get('/api/admin/logs', async (req, res) => {
     const { skill_name, status } = req.query;
     try {
         let query = `
-            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar
+            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar,
+                   mw.name as moderator_name,
+                   (
+                       SELECT string_agg(wm.name, ', ' ORDER BY wm.name)
+                       FROM wizards wm
+                       WHERE wm.role = 'moderator' 
+                       AND pl.skill_name = ANY(wm.managed_skills)
+                   ) as assigned_moderators
             FROM practice_logs pl
             JOIN wizards w ON pl.user_id = w.id
+            LEFT JOIN wizards mw ON pl.moderator_approval_id = mw.id
             WHERE 1=1
         `;
         const params = [];
@@ -291,7 +312,8 @@ app.get('/api/admin/logs', async (req, res) => {
             wizards: { 
                 name: row.wizard_name,
                 avatar_url: row.wizard_avatar
-            }
+            },
+            moderator_name: row.moderator_name
         }));
         
         res.json(formattedRows);
@@ -340,25 +362,80 @@ app.delete('/api/logs/:id', async (req, res) => {
   }
 });
 
-// Logs: Update Status (Admin)
+// Logs: Update Status (Admin/Moderator)
 app.patch('/api/logs/:id/status', async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, user_id } = req.body;
 
     if (!['approved', 'rejected', 'exam_passed'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
 
     try {
-        const result = await pool.query(
-            'UPDATE practice_logs SET status = $1 WHERE id = $2 RETURNING *',
-            [status, id]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Log not found' });
+        // Get Log and acting User
+        const logRes = await pool.query('SELECT * FROM practice_logs WHERE id = $1', [id]);
+        if (logRes.rows.length === 0) return res.status(404).json({ error: 'Log not found' });
+        const log = logRes.rows[0];
+
+        // If user_id is provided, check permissions more strictly
+        // For backward compatibility (if any), we might need to handle missing user_id, 
+        // but frontend should send it.
+        let user;
+        if (user_id) {
+            const userRes = await pool.query('SELECT * FROM wizards WHERE id = $1', [user_id]);
+            if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+            user = userRes.rows[0];
+        } else {
+            // Fallback or error? Let's require user_id for this new logic
+            return res.status(400).json({ error: 'User ID is required' });
         }
 
+        const isGlobalAdmin = user.role === 'admin';
+        const isModerator = user.role === 'moderator' && user.managed_skills && user.managed_skills.includes(log.skill_name);
+
+        if (!isGlobalAdmin && !isModerator) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        // Check if skill requires moderation (has any moderator assigned)
+        const modCheck = await pool.query(
+            "SELECT 1 FROM wizards WHERE role = 'moderator' AND $1 = ANY(managed_skills) LIMIT 1",
+            [log.skill_name]
+        );
+        const requiresModeration = modCheck.rows.length > 0;
+
+        let newStatus = status;
+        let updateModeratorInfo = false;
+
+        // Logic for Approval
+        if (status === 'approved' || status === 'exam_passed') {
+            if (requiresModeration) {
+                if (isModerator) {
+                    // Moderator approving: mark as moderator approved, but keep pending for admin
+                    updateModeratorInfo = true;
+                    newStatus = 'pending'; 
+                } else if (isGlobalAdmin) {
+                    // Admin approving: check if moderator approved
+                    if (!log.moderator_approval_id) {
+                         return res.status(400).json({ error: 'Требуется предварительное одобрение экзаменатора (полу-администратора).' });
+                    }
+                }
+            }
+        }
+        
+        let result;
+        if (updateModeratorInfo) {
+             result = await pool.query(
+                 'UPDATE practice_logs SET moderator_approval_id = $1, moderator_approved_at = NOW() WHERE id = $2 RETURNING *',
+                 [user.id, id]
+             );
+        } else {
+             result = await pool.query(
+                 'UPDATE practice_logs SET status = $1 WHERE id = $2 RETURNING *',
+                 [newStatus, id]
+             );
+        }
+        
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
