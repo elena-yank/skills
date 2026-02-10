@@ -17,37 +17,20 @@ export const SKILL_THRESHOLDS: Record<string, number> = {
 export const EXAM_REQUIRED_SKILLS = ["Анимагия", "Артефакторика", "Некромантия", "Трансгрессия"];
 
 export const calculateSkillProgress = (skillName: string, approvedCount: number, hasExamPassed: boolean = false): number => {
-    // If exam is passed, progress is 100%
+    // If exam is passed or study is completed (marked as passed), progress is 100%
     if (hasExamPassed) return 100;
 
     const threshold = SKILL_THRESHOLDS[skillName] || 100;
     
-    // For skills requiring exam, cap at 90% if exam not passed
-    // But wait, if threshold is 15, and we have 15 posts. 15/15 = 100%.
-    // We want 15 posts to be 90%.
-    // So effective threshold for 100% would be higher? No.
-    // User said: "15 posts = 90%".
-    // So 1 post = 6%. 15 * 6 = 90.
-    // This implies the "full" threshold is actually 15 / 0.9 = 16.666...
-    // Or we can just calculate normally based on 15, then multiply by 0.9?
-    // Let's treat the threshold as the "max practice posts needed".
-    // If exam required, max practice gives 90%.
+    // Calculate percentage based on approved posts
+    // For both exam and non-exam skills, we now cap at 90% from posts alone.
+    // 100% is only achievable via Exam (for exam skills) or "Complete Study" button (for non-exam skills).
     
-    const isExamRequired = EXAM_REQUIRED_SKILLS.includes(skillName);
+    // Scale so that threshold count = 90%
+    let percentage = (approvedCount / threshold) * 90;
     
-    let percentage = (approvedCount / threshold) * 100;
-    
-    if (isExamRequired) {
-        // Scale so that threshold count = 90%
-        // i.e. if count == threshold, we want 90%.
-        // percentage = (count / threshold) * 90;
-        percentage = (approvedCount / threshold) * 90;
-        
-        // Cap at 90% if exam not passed
-        return Math.min(Math.round(percentage), 90);
-    }
-
-    return Math.min(Math.round(percentage), 100);
+    // Cap at 90%
+    return Math.min(Math.round(percentage), 90);
 };
 
 export const calculateSpecialSkillStatus = (approvedCount: number): { level: number; progress: number } => {

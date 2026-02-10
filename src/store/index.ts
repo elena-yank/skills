@@ -20,18 +20,26 @@ export interface Skill {
   isLocked?: boolean;
   level?: number;
   applicationStatus?: 'pending' | 'approved' | 'rejected' | 'none';
+  completionStatus?: 'pending' | 'rejected' | 'none';
   hasExamPassed?: boolean;
 }
+
+import { Notification } from '../lib/api/types';
 
 interface AppState {
   user: Wizard | null;
   skills: Skill[];
+  notifications: Notification[];
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
-  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string, viewAsUser?: boolean, type?: 'practice' | 'exam' | 'application') => Promise<void>;
+  fetchNotifications: () => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+  addPracticeLog: (skillName: string, content: string, wordCount: number, postLink: string, viewAsUser?: boolean, type?: 'practice' | 'exam' | 'application' | 'completion_request') => Promise<void>;
   deletePracticeLog: (logId: string) => Promise<void>;
-  updateLogStatus: (logId: string, status: 'approved' | 'rejected' | 'exam_passed') => Promise<void>;
+  updateLogStatus: (logId: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -84,6 +92,7 @@ const getInitialUser = (): Wizard | null => {
 export const useStore = create<AppState>((set, get) => ({
   user: getInitialUser(),
   skills: DEFAULT_SKILLS.map(name => ({ id: name, name, progress: 0 })),
+  notifications: [],
   isLoading: false,
 
   setUser: (user) => {
@@ -93,6 +102,57 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.removeItem(STORAGE_KEY);
     }
     set({ user });
+  },
+
+  fetchNotifications: async () => {
+    const { user } = get();
+    if (!user) return;
+    try {
+        const notifications = await api.notifications.list(user.id);
+        set({ notifications });
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+    }
+  },
+
+  markNotificationAsRead: async (id) => {
+    try {
+        await api.notifications.markAsRead(id);
+        const { notifications } = get();
+        set({ 
+            notifications: notifications.map(n => 
+                n.id === id ? { ...n, read: true } : n
+            ) 
+        });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+    }
+  },
+
+  markAllNotificationsAsRead: async () => {
+      const { user } = get();
+      if (!user) return;
+      try {
+          await api.notifications.markAllAsRead(user.id);
+          const { notifications } = get();
+          set({
+              notifications: notifications.map(n => ({ ...n, read: true }))
+          });
+      } catch (error) {
+          console.error('Error marking all notifications as read:', error);
+      }
+  },
+
+  deleteNotification: async (id) => {
+      try {
+          await api.notifications.delete(id);
+          const { notifications } = get();
+          set({
+              notifications: notifications.filter(n => n.id !== id)
+          });
+      } catch (error) {
+          console.error('Error deleting notification:', error);
+      }
   },
 
   fetchSkills: async (viewAsUser?: boolean) => {
@@ -113,6 +173,7 @@ export const useStore = create<AppState>((set, get) => ({
          const personalApprovedMap = new Map<string, number>();
          const personalExamPassedMap = new Map<string, boolean>();
          const personalSpecialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
+         const personalCompletionStatus = new Map<string, 'pending' | 'rejected'>();
 
          data?.forEach(log => {
              // --- Dashboard Stats Logic ---
@@ -129,6 +190,17 @@ export const useStore = create<AppState>((set, get) => ({
 
              // --- Personal Stats Logic ---
              if (log.user_id === user.id) {
+                 if (log.type === 'completion_request') {
+                 if (log.status === 'pending') {
+                     personalCompletionStatus.set(log.skill_name, 'pending');
+                 } else if (log.status === 'rejected') {
+                     personalCompletionStatus.set(log.skill_name, 'rejected');
+                 } else if (log.status === 'study_completed') {
+                     personalExamPassedMap.set(log.skill_name, true);
+                 }
+                 return;
+             }
+
                  // Handle application logs
                  if (log.type === 'application') {
                      if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
@@ -150,7 +222,7 @@ export const useStore = create<AppState>((set, get) => ({
                     const current = personalApprovedMap.get(log.skill_name) || 0;
                     personalApprovedMap.set(log.skill_name, current + 1);
                  }
-                 if (log.status === 'exam_passed') {
+                 if (log.status === 'exam_passed' || log.status === 'study_completed') {
                      personalExamPassedMap.set(log.skill_name, true);
                      const current = personalApprovedMap.get(log.skill_name) || 0;
                      personalApprovedMap.set(log.skill_name, current + 1);
@@ -192,6 +264,7 @@ export const useStore = create<AppState>((set, get) => ({
                  isLocked,
                  level,
                  applicationStatus,
+                 completionStatus: personalCompletionStatus.get(name),
                  hasExamPassed,
                  
                  // Dashboard Stats
@@ -199,13 +272,7 @@ export const useStore = create<AppState>((set, get) => ({
                  pendingCount: globalPendingMap.get(name) || 0, // Pending tasks for admin
                  globalApprovedCount: globalApprovedMap.get(name) || 0 // Optional: if needed
              };
-         }).sort((a, b) => b.progress - a.progress); // Sort by personal progress? Or pending count?
-         // Maybe sort by pending count if in admin view? 
-         // But user complained about progress resetting.
-         // Let's keep sort by progress for now, or maybe primary sort pending, secondary progress?
-         // Standard admin view usually prioritizes pending. 
-         // But the user issue implies they care about progress.
-         // Let's stick to progress sort or maybe stable sort.
+         }).sort((a, b) => b.progress - a.progress); 
          
          set({ skills: updatedSkills });
       } else {
@@ -215,15 +282,23 @@ export const useStore = create<AppState>((set, get) => ({
          const progressMap = new Map<string, number>();
          const examPassedMap = new Map<string, boolean>();
          const specialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
+         const completionStatusMap = new Map<string, 'pending' | 'rejected'>();
 
          data?.forEach(log => {
+             if (log.type === 'completion_request') {
+                 if (log.status === 'pending') {
+                     completionStatusMap.set(log.skill_name, 'pending');
+                 } else if (log.status === 'rejected') {
+                     completionStatusMap.set(log.skill_name, 'rejected');
+                 } else if (log.status === 'study_completed') {
+                     examPassedMap.set(log.skill_name, true);
+                 }
+                 return;
+             }
+
              // Handle application logs
              if (log.type === 'application') {
                  if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
-                     // Keep the most relevant status. If there are multiple, prioritize pending > rejected > approved?
-                     // Actually, if ANY is approved, we are good.
-                     // If no approved, but one is pending, then pending.
-                     // If all rejected, then rejected.
                      const current = specialSkillAppStatus.get(log.skill_name);
                      if (current === 'approved') return; // Already approved
                      
@@ -235,14 +310,14 @@ export const useStore = create<AppState>((set, get) => ({
                          specialSkillAppStatus.set(log.skill_name, 'rejected');
                      }
                  }
-                 return; // Don't count application logs for progress
+                     return; // Don't count application logs for progress
              }
 
              if (log.status === 'approved') {
                 const current = progressMap.get(log.skill_name) || 0;
                 progressMap.set(log.skill_name, current + 1);
              }
-             if (log.status === 'exam_passed') {
+             if (log.status === 'exam_passed' || log.status === 'study_completed') {
                  examPassedMap.set(log.skill_name, true);
                  const current = progressMap.get(log.skill_name) || 0;
                  progressMap.set(log.skill_name, current + 1);
@@ -278,7 +353,8 @@ export const useStore = create<AppState>((set, get) => ({
                 name,
                 progress,
                 approvedCount: count,
-                hasExamPassed
+                hasExamPassed,
+                completionStatus: completionStatusMap.get(name)
             };
          }).sort((a, b) => b.progress - a.progress);
 
@@ -291,7 +367,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean, type: 'practice' | 'exam' = 'practice') => {
+  addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean, type: 'practice' | 'exam' | 'application' | 'completion_request' = 'practice') => {
     const { user, fetchSkills } = get();
     if (!user) return;
 
@@ -326,12 +402,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  updateLogStatus: async (logId: string, status: 'approved' | 'rejected' | 'exam_passed') => {
+  updateLogStatus: async (logId: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => {
       const { user, fetchSkills } = get();
       if (!user || (user.role !== 'admin' && user.role !== 'moderator')) return;
 
       try {
-          await api.logs.updateStatus(logId, status, user.id);
+          await api.logs.updateStatus(logId, status, user.id, rejectionReason);
           await fetchSkills();
       } catch (error) {
           console.error('Error updating log status:', error);

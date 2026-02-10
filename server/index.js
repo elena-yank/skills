@@ -60,7 +60,7 @@ const runMigrations = async () => {
       await client.query(`
         ALTER TABLE practice_logs 
         ADD CONSTRAINT practice_logs_status_check 
-        CHECK (status IN ('pending', 'approved', 'rejected', 'exam_passed'))
+        CHECK (status IN ('pending', 'approved', 'rejected', 'exam_passed', 'study_completed'))
       `);
 
       // Add avatar_url column to wizards table
@@ -97,6 +97,32 @@ const runMigrations = async () => {
       await client.query(`
         ALTER TABLE skill_metadata 
         ADD COLUMN IF NOT EXISTS description TEXT
+      `);
+
+      // Add notifications table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'info',
+            read BOOLEAN DEFAULT FALSE,
+            link TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      // Add rejection_reason to practice_logs
+      await client.query(`
+        ALTER TABLE practice_logs 
+        ADD COLUMN IF NOT EXISTS rejection_reason TEXT
+      `);
+
+      // Add moderator_proposed_status column if not exists
+      await client.query(`
+        ALTER TABLE practice_logs 
+        ADD COLUMN IF NOT EXISTS moderator_proposed_status VARCHAR(50)
       `);
 
       await client.query('COMMIT');
@@ -307,7 +333,23 @@ app.get('/api/admin/logs', async (req, res) => {
                        FROM wizards wm
                        WHERE wm.role = 'moderator' 
                        AND pl.skill_name = ANY(wm.managed_skills)
-                   ) as assigned_moderators
+                   ) as assigned_moderators,
+                   (
+                       SELECT COUNT(*)::int
+                       FROM practice_logs sub 
+                       WHERE sub.user_id = pl.user_id 
+                       AND sub.skill_name = pl.skill_name 
+                       AND sub.status IN ('approved', 'exam_passed', 'study_completed')
+                   ) as user_approved_count,
+                   (
+                       SELECT EXISTS (
+                           SELECT 1 
+                           FROM practice_logs sub 
+                           WHERE sub.user_id = pl.user_id 
+                           AND sub.skill_name = pl.skill_name 
+                           AND sub.status IN ('exam_passed', 'study_completed')
+                       )
+                   ) as has_completed_status
             FROM practice_logs pl
             JOIN wizards w ON pl.user_id = w.id
             LEFT JOIN wizards mw ON pl.moderator_approval_id = mw.id
@@ -355,6 +397,40 @@ app.post('/api/logs', async (req, res) => {
       'INSERT INTO practice_logs (user_id, skill_name, content, word_count, post_link, type) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [user_id, skill_name, content, word_count, post_link, type || 'practice']
     );
+    
+    // Notification Logic for Completion Requests
+    if (type === 'completion_request') {
+        // 1. Get User Name
+        const userRes = await pool.query('SELECT name FROM wizards WHERE id = $1', [user_id]);
+        const userName = userRes.rows[0]?.name || 'Волшебник';
+
+        // 2. Find Admins and Moderators for this skill
+        const recipientsRes = await pool.query(
+            `SELECT id FROM wizards 
+             WHERE role = 'admin' 
+             OR (role = 'moderator' AND $1 = ANY(managed_skills))`,
+            [skill_name]
+        );
+
+        // 3. Create Notifications
+        for (const recipient of recipientsRes.rows) {
+            // Don't notify the user themselves (if they happen to be admin, though unlikely to approve own request in this flow)
+            if (recipient.id === user_id) continue;
+
+            await pool.query(
+                `INSERT INTO notifications (user_id, title, message, type, link)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [
+                    recipient.id,
+                    'Заявка на завершение обучения',
+                    `${userName} подал(а) заявку на завершение обучения по навыку "${skill_name}"`,
+                    'info',
+                    `/skill/${encodeURIComponent(skill_name)}?username=${encodeURIComponent(userName)}`
+                ]
+            );
+        }
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -454,12 +530,72 @@ app.post('/api/skills/metadata', async (req, res) => {
     }
 });
 
+// Notifications: Get User Notifications
+app.get('/api/notifications', async (req, res) => {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ error: 'User ID is required' });
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC',
+            [user_id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Notifications: Mark as Read
+app.patch('/api/notifications/:id/read', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query(
+            'UPDATE notifications SET read = true WHERE id = $1 RETURNING *',
+            [id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Notifications: Mark All as Read
+app.patch('/api/notifications/read-all', async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'User ID is required' });
+    try {
+        await pool.query(
+            'UPDATE notifications SET read = true WHERE user_id = $1',
+            [user_id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Notifications: Delete Notification
+app.delete('/api/notifications/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM notifications WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Logs: Update Status (Admin/Moderator)
 app.patch('/api/logs/:id/status', async (req, res) => {
     const { id } = req.params;
-    const { status, user_id } = req.body;
+    const { status, user_id, rejection_reason } = req.body;
 
-    if (!['approved', 'rejected', 'exam_passed'].includes(status)) {
+    if (!['approved', 'rejected', 'exam_passed', 'study_completed'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
 
@@ -500,7 +636,7 @@ app.patch('/api/logs/:id/status', async (req, res) => {
         let updateModeratorInfo = false;
 
         // Logic for Approval
-        if (status === 'approved' || status === 'exam_passed') {
+        if (status === 'approved' || status === 'exam_passed' || status === 'study_completed') {
             if (requiresModeration) {
                 if (isModerator) {
                     // Moderator approving: mark as moderator approved, but keep pending for admin
@@ -518,14 +654,44 @@ app.patch('/api/logs/:id/status', async (req, res) => {
         let result;
         if (updateModeratorInfo) {
              result = await pool.query(
-                 'UPDATE practice_logs SET moderator_approval_id = $1, moderator_approved_at = NOW() WHERE id = $2 RETURNING *',
-                 [user.id, id]
+                 'UPDATE practice_logs SET moderator_approval_id = $1, moderator_approved_at = NOW(), moderator_proposed_status = $2 WHERE id = $3 RETURNING *',
+                 [user.id, status, id]
              );
         } else {
              result = await pool.query(
-                 'UPDATE practice_logs SET status = $1 WHERE id = $2 RETURNING *',
-                 [newStatus, id]
+                 'UPDATE practice_logs SET status = $1, rejection_reason = $2 WHERE id = $3 RETURNING *',
+                 [newStatus, rejection_reason || null, id]
              );
+        }
+
+        // Create Notification
+        if (!updateModeratorInfo) { // Don't notify on intermediate moderator approval (or should we? User requirements say "post was reviewed and approved" - implies final approval)
+            // Wait, if moderator approves, status is still pending. User shouldn't be notified yet?
+            // "if post was accepted, notification comes that such post for such skill was reviewed and approved"
+            // This sounds like final approval.
+            
+            // "if post was rejected, notification comes that such post for such skill was reviewed and rejected for reason X"
+
+            let notifTitle = '';
+            let notifMessage = '';
+            let notifType = 'info';
+
+            if (newStatus === 'approved' || newStatus === 'exam_passed' || newStatus === 'study_completed') {
+                notifTitle = 'Пост одобрен!';
+                notifMessage = `Ваш пост по навыку "${log.skill_name}" был рассмотрен и одобрен.`;
+                notifType = 'success';
+            } else if (newStatus === 'rejected') {
+                notifTitle = 'Пост отклонен';
+                notifMessage = `Ваш пост по навыку "${log.skill_name}" был рассмотрен и отклонен. Причина: ${rejection_reason || 'не указана'}.`;
+                notifType = 'error';
+            }
+
+            if (notifTitle) {
+                await pool.query(
+                    'INSERT INTO notifications (user_id, title, message, type, link) VALUES ($1, $2, $3, $4, $5)',
+                    [log.user_id, notifTitle, notifMessage, notifType, `/skill/${encodeURIComponent(log.skill_name)}`]
+                );
+            }
         }
         
         res.json(result.rows[0]);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useStore } from '../store';
 import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload } from 'lucide-react';
-import { SKILL_CATEGORIES } from '../store';
+import { Notifications } from '../components/Notifications';
+import { useStore, SKILL_CATEGORIES } from '../store';
 import { PracticeModal } from '../components/PracticeModal';
 import { SkillInfoModal } from '../components/SkillInfoModal';
 import { ImageModal } from '../components/ImageModal';
@@ -15,7 +15,7 @@ import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
 
 export const Dashboard: React.FC = () => {
-  const { user, skills, fetchSkills, signOut } = useStore();
+  const { user, skills, fetchSkills, signOut, addPracticeLog } = useStore();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
   const [isExamMode, setIsExamMode] = useState(false);
@@ -29,6 +29,18 @@ export const Dashboard: React.FC = () => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCompletionRequest = async (skillName: string) => {
+    if (!confirm('Вы уверены, что хотите подать заявку на завершение обучения?')) return;
+    
+    try {
+        await addPracticeLog(skillName, 'Заявка на завершение обучения', 0, '', true, 'completion_request');
+        alert('Заявка успешно отправлена!');
+    } catch (error) {
+        console.error(error);
+        alert('Ошибка при отправке заявки');
+    }
+  };
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -82,6 +94,7 @@ export const Dashboard: React.FC = () => {
 
   const getSkillNextStepInfo = (skill: any) => {
     if (skill.isLocked) return null;
+    if (skill.progress >= 100) return 'Максимальный уровень';
     
     const count = skill.approvedCount || 0;
     
@@ -205,7 +218,7 @@ export const Dashboard: React.FC = () => {
           />
            <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
 
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 gap-4 md:gap-0">
+          <div className="relative z-50 flex flex-col md:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 gap-4 md:gap-0">
             <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
               <div className="relative">
                 <div 
@@ -253,17 +266,13 @@ export const Dashboard: React.FC = () => {
                   className="hidden"
               />
 
-              <ImageModal 
-                  isOpen={showAvatarModal}
-                  onClose={() => setShowAvatarModal(false)}
-                  imageUrl={user?.avatar_url || ''}
-                  altText={user?.name || 'Avatar'}
-              />
-
               <div>
-                <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold">
-                    {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
-                </h2>
+                <div className="flex items-center gap-4 justify-center md:justify-start">
+                    <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold">
+                        {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
+                    </h2>
+                    <Notifications />
+                </div>
                 <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 justify-center md:justify-start">
                   <p className="text-white text-sm md:text-lg font-century font-normal">
                     Добро пожаловать, {user?.name || 'Волшебник'}
@@ -354,11 +363,31 @@ export const Dashboard: React.FC = () => {
                                                 setIsExamMode(true);
                                                 setIsApplicationMode(false);
                                             }}
-                                            className="px-3 py-1 rounded-full text-white font-bold text-xs shadow-md hover:shadow-lg transition-all"
-                                            style={{ backgroundColor: '#006633' }}
+                                            className="px-3 py-1 rounded-full text-white font-bold text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                            style={{ backgroundColor: '#006633', fontFamily: 'RobotoforLearning-Medium_0' }}
                                         >
-                                            Сдать экзамен
+                                            СДАТЬ ЭКЗАМЕН
                                         </button>
+                                    )}
+                                    {!EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && (
+                                        <>
+                                            {skill.completionStatus === 'pending' ? (
+                                                 <span className="text-xs font-bold text-hogwarts-gold bg-hogwarts-ink/50 px-2 py-1 rounded">
+                                                     Заявка на рассмотрении
+                                                 </span>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCompletionRequest(skill.name);
+                                                    }}
+                                                    className="px-3 py-1 rounded-full text-white text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                                    style={{ backgroundColor: '#006633', fontFamily: 'RobotoforLearning-Medium_0' }}
+                                                >
+                                                    ПОДАТЬ ЗАЯВКУ НА ЗАВЕРШЕНИЕ
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -453,7 +482,7 @@ export const Dashboard: React.FC = () => {
                                             )}
                                         </div>
                                         
-                                        <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10">
+                                        <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1">
                                             {/* Tooltip positioned relative to the container (center of progress bar) */}
                                             {getSkillNextStepInfo(skill) && (
                                                 <div className={`
@@ -519,6 +548,13 @@ export const Dashboard: React.FC = () => {
         onClose={() => setSelectedSkillInfo(null)}
         title={selectedSkillInfo || ''}
         description={selectedSkillInfo ? (SKILL_DESCRIPTIONS[selectedSkillInfo] || '') : ''}
+      />
+
+      <ImageModal 
+          isOpen={showAvatarModal}
+          onClose={() => setShowAvatarModal(false)}
+          imageUrl={user?.avatar_url || ''}
+          altText={user?.name || 'Avatar'}
       />
       </div>
     </div>

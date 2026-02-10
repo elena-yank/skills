@@ -16,14 +16,29 @@ export interface PracticeLog {
   word_count: number;
   post_link?: string;
   created_at: string;
-  status: 'pending' | 'approved' | 'rejected' | 'exam_passed';
-  type?: 'practice' | 'exam' | 'application';
+  status: 'pending' | 'approved' | 'rejected' | 'exam_passed' | 'study_completed';
+  type?: 'practice' | 'exam' | 'application' | 'completion_request';
   wizards?: { name: string; avatar_url?: string }; // Joined user data
   moderator_approval_id?: string;
   moderator_approved_at?: string;
+  moderator_proposed_status?: 'approved' | 'exam_passed' | 'study_completed';
   moderator_name?: string; // Joined moderator name
   moderator_avatar?: string; // Joined moderator avatar
   assigned_moderators?: string; // Names of assigned moderators
+  user_approved_count?: number; // From admin listAll
+  has_completed_status?: boolean; // From admin listAll
+  rejection_reason?: string;
+}
+
+export interface Notification {
+    id: string;
+    user_id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'success' | 'error' | 'warning';
+    read: boolean;
+    link?: string;
+    created_at: string;
 }
 
 export interface SkillMetadata {
@@ -60,6 +75,12 @@ export interface ApiClient {
     listAll: (skillName?: string, status?: string) => Promise<PracticeLog[]>; // For admin
     create: (log: Omit<PracticeLog, 'id' | 'created_at' | 'status'>) => Promise<PracticeLog>;
     delete: (id: string, userId: string) => Promise<void>;
-    updateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed', userId: string) => Promise<void>;
+    updateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', userId: string, rejectionReason?: string) => Promise<void>;
+  };
+  notifications: {
+      list: (userId: string) => Promise<Notification[]>;
+      markAsRead: (id: string) => Promise<void>;
+      markAllAsRead: (userId: string) => Promise<void>;
+      delete: (id: string) => Promise<void>;
   };
 }

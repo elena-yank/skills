@@ -75,6 +75,8 @@ export const PublicProfile: React.FC = () => {
             return 'Требуется сдать экзамен';
         }
     } else {
+        if (skill.hasExamPassed) return 'Максимальный уровень';
+
         if (count < threshold) {
             const needed = threshold - count;
             return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} до завершения`;
@@ -124,7 +126,7 @@ export const PublicProfile: React.FC = () => {
             const current = progressMap.get(log.skill_name) || 0;
             progressMap.set(log.skill_name, current + 1);
         }
-        if (log.status === 'exam_passed') {
+        if (log.status === 'exam_passed' || log.status === 'study_completed') {
             examPassedMap.set(log.skill_name, true);
             const current = progressMap.get(log.skill_name) || 0;
             progressMap.set(log.skill_name, current + 1);

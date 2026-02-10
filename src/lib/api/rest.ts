@@ -155,16 +155,53 @@ export const restApi: ApiClient = {
         throw new Error(data.error);
       }
     },
-    updateStatus: async (id, status, userId) => {
+    updateStatus: async (id, status, userId, rejectionReason) => {
         const res = await fetch(`${API_URL}/logs/${id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, user_id: userId }),
+            body: JSON.stringify({ status, user_id: userId, rejection_reason: rejectionReason }),
         });
         if (!res.ok) {
             const data = await res.json();
             throw new Error(data.error);
         }
     }
+  },
+  notifications: {
+      list: async (userId) => {
+          const res = await fetch(`${API_URL}/notifications?user_id=${userId}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data;
+      },
+      markAsRead: async (id) => {
+          const res = await fetch(`${API_URL}/notifications/${id}/read`, {
+              method: 'PATCH',
+          });
+          if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error);
+          }
+      },
+      markAllAsRead: async (userId) => {
+          const res = await fetch(`${API_URL}/notifications/read-all`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId }),
+          });
+          if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error);
+          }
+      },
+      delete: async (id) => {
+          const res = await fetch(`${API_URL}/notifications/${id}`, {
+              method: 'DELETE',
+          });
+          if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error);
+          }
+      }
   }
 };

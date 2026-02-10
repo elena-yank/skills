@@ -13,7 +13,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ isOpen, onClose, imageUr
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" onClick={onClose}>
       <button 
         onClick={onClose}
         className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"

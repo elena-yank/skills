@@ -12,6 +12,11 @@ import mortRedSvg from '../assets/mort-red.svg';
 import animaRedSvg from '../assets/anima-red.svg';
 import artifactsRedSvg from '../assets/artifacts-red.svg';
 import spaceSvg from '../assets/space.svg';
+import divinationRedSvg from '../assets/divination_red.svg';
+import legilimentRedSvg from '../assets/legiliment_red.svg';
+import occlumRedSvg from '../assets/occlum_red.svg';
+import levitRedSvg from '../assets/levit_red.svg';
+import necroRedSvg from '../assets/necro_red.svg';
 
 interface SkillInfoModalProps {
   isOpen: boolean;
@@ -229,6 +234,41 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
                 <img 
                     src={spaceSvg} 
                     alt="Space Magic" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Провидение' && (
+                <img 
+                    src={divinationRedSvg} 
+                    alt="Divination" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Легилименция' && (
+                <img 
+                    src={legilimentRedSvg} 
+                    alt="Legilimency" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Окклюменция' && (
+                <img 
+                    src={occlumRedSvg} 
+                    alt="Occlumency" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Самостоятельная левитация' && (
+                <img 
+                    src={levitRedSvg} 
+                    alt="Self-Levitation" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Некромантия' && (
+                <img 
+                    src={necroRedSvg} 
+                    alt="Necromancy" 
                     className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
                 />
             )}

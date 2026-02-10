@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen } from 'lucide-react';
 import { useStore } from '../store';
-import { getSkillHeaderClass } from '../lib/skillUtils';
+import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import { PracticeLog } from '../lib/api/types';
@@ -16,6 +16,11 @@ import mortGoldSvg from '../assets/mort-gold.svg';
 import animaGoldSvg from '../assets/anima-gold.svg';
 import artifactsGoldSvg from '../assets/artifacts-gold.svg';
 import spaceSvg from '../assets/space.svg';
+import divinationGoldSvg from '../assets/divination_gold.svg';
+import legilimentGoldSvg from '../assets/legiliment_gold.svg';
+import occlumGoldSvg from '../assets/occlum_gold.svg';
+import levitGoldSvg from '../assets/levit_gold.svg';
+import necroGoldSvg from '../assets/necro_gold.svg';
 
 interface Log extends PracticeLog {
   // PracticeLog already has status and wizards from my update to types.ts
@@ -24,17 +29,28 @@ interface Log extends PracticeLog {
 const LogItem: React.FC<{ 
     log: Log; 
     onDelete: (id: string) => void; 
-    isOwner: boolean;
-    onUpdateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed') => void;
+    isOwner: boolean; 
+    onUpdateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => void;
 }> = ({ log, onDelete, isOwner, onUpdateStatus }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const { user } = useStore();
   
   const isGlobalAdmin = user?.role === 'admin';
   const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(log.skill_name);
   const canModerate = isGlobalAdmin || isModerator;
+
+  // Logic for "Complete Study" button
+  const threshold = SKILL_THRESHOLDS[log.skill_name] || 100;
+  const approvedCount = log.user_approved_count || 0;
+  const isExamRequired = EXAM_REQUIRED_SKILLS.includes(log.skill_name);
+  const isAlreadyCompleted = log.has_completed_status;
+  
+  // Show button if user reached threshold (90%), exam is not required, and not already completed
+  const showCompleteStudy = canModerate && !isExamRequired && approvedCount >= threshold && !isAlreadyCompleted;
   
   // Split content into paragraphs
   const paragraphs = log.content.split('\n').filter(p => p.trim().length > 0);
@@ -47,6 +63,12 @@ const LogItem: React.FC<{
   const confirmDelete = () => {
     onDelete(log.id);
     setShowConfirm(false);
+  };
+
+  const handleReject = () => {
+    onUpdateStatus(log.id, 'rejected', rejectionReason);
+    setShowRejectModal(false);
+    setRejectionReason('');
   };
 
   const isGranted = log.status === 'exam_passed' && log.word_count === 0 && !!log.moderator_approval_id;
@@ -64,10 +86,15 @@ const LogItem: React.FC<{
           </div>
       )}
       {!canModerate && log.status === 'rejected' && (
-          <div className="absolute inset-0 bg-red-100/80 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
-             <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100 text-center mx-4">
+          <div className="absolute inset-0 bg-red-100/80 z-30 flex flex-col items-center justify-center backdrop-blur-[1px] pointer-events-none p-4">
+             <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100 text-center mb-2">
                 Ваш текст был отклонён, обратитесь к администрации
              </div>
+             {log.rejection_reason && (
+                <div className="bg-white/90 text-hogwarts-red px-6 py-3 rounded-lg shadow-md font-serif text-lg border border-hogwarts-red pointer-events-auto z-40 max-w-md text-center">
+                    <span className="font-bold">Причина:</span> {log.rejection_reason}
+                </div>
+             )}
           </div>
       )}
 
@@ -95,7 +122,38 @@ const LogItem: React.FC<{
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-10 gap-4 md:gap-0">
+      {showRejectModal && (
+        <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center rounded-lg p-8 animate-in fade-in duration-200">
+            <h3 className="text-xl font-serif font-bold text-hogwarts-red mb-4">Укажите причину отказа</h3>
+            <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="w-full max-w-md p-3 border-2 border-hogwarts-bronze rounded-lg mb-4 font-century focus:outline-none focus:border-hogwarts-gold resize-none"
+                rows={4}
+                placeholder="Почему этот пост отклонен?"
+            />
+            <div className="flex gap-4">
+                <button
+                    onClick={() => {
+                        setShowRejectModal(false);
+                        setRejectionReason('');
+                    }}
+                    className="px-4 py-2 rounded border border-hogwarts-bronze text-hogwarts-ink hover:bg-hogwarts-parchment transition-colors font-serif"
+                >
+                    Отмена
+                </button>
+                <button
+                    onClick={handleReject}
+                    disabled={!rejectionReason.trim()}
+                    className="px-4 py-2 rounded bg-hogwarts-red text-white font-bold hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-serif"
+                >
+                    Отклонить
+                </button>
+            </div>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-40 gap-4 md:gap-0">
         <div className="flex flex-col gap-1 w-full md:w-auto">
             <div className="flex flex-wrap items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
             {isGranted && log.moderator_name ? (
@@ -246,37 +304,84 @@ const LogItem: React.FC<{
                         )}
                         <div className="flex gap-3">
                             <button
-                                onClick={() => onUpdateStatus(log.id, 'rejected')}
+                                onClick={() => setShowRejectModal(true)}
                                 className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-bold font-serif"
                             >
                                 <X className="w-4 h-4" />
                                 Отклонить
                             </button>
                             
-                            {!(isModerator && log.moderator_approval_id === user?.id) ? (
-                                <button
-                                    onClick={() => onUpdateStatus(log.id, 'approved')}
-                                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
-                                    title={isModerator ? "Одобрить как экзаменатор" : "Принять: Добавить в историю"}
-                                >
-                                    <Check className="w-4 h-4" />
-                                    {isModerator ? 'Одобрить' : 'Принять'}
-                                </button>
+                            {isGlobalAdmin && log.moderator_approval_id ? (
+                                // Admin View when Moderator has already acted
+                                <>
+                                    {(!log.moderator_proposed_status || log.moderator_proposed_status === 'approved') && (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'approved')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                                        >
+                                            <Check className="w-4 h-4" />
+                                            Принять
+                                        </button>
+                                    )}
+                                    {log.moderator_proposed_status === 'exam_passed' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'exam_passed')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                                        >
+                                            <GraduationCap className="w-4 h-4" />
+                                            Экзамен сдан
+                                        </button>
+                                    )}
+                                     {log.moderator_proposed_status === 'study_completed' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'study_completed')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze"
+                                        >
+                                            <BookOpen className="w-4 h-4" />
+                                            Завершить изучение
+                                        </button>
+                                    )}
+                                </>
                             ) : (
-                                <span className="text-hogwarts-green font-bold text-sm flex items-center gap-1 self-center px-4 py-2 border border-transparent">
-                                    <Check className="w-4 h-4" /> Вы одобрили
-                                </span>
-                            )}
+                                // Standard View (Moderator or Admin without prior moderation)
+                                <>
+                                    {!(isModerator && log.moderator_approval_id === user?.id) ? (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'approved')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            title={isModerator ? "Одобрить как экзаменатор" : "Принять: Добавить в историю"}
+                                        >
+                                            <Check className="w-4 h-4" />
+                                            {isModerator ? 'Одобрить' : 'Принять'}
+                                        </button>
+                                    ) : (
+                                        <span className="text-hogwarts-green font-bold text-sm flex items-center gap-1 self-center px-4 py-2 border border-transparent">
+                                            <Check className="w-4 h-4" /> Вы одобрили
+                                        </span>
+                                    )}
 
-                            {log.type === 'exam' && (
-                                <button
-                                    onClick={() => onUpdateStatus(log.id, 'exam_passed')}
-                                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
-                                    title="Экзамен сдан: Прогресс станет 100%"
-                                >
-                                    <GraduationCap className="w-4 h-4" />
-                                    Экзамен сдан
-                                </button>
+                                    {log.type === 'exam' && (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'exam_passed')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            title="Экзамен сдан: Прогресс станет 100%"
+                                        >
+                                            <GraduationCap className="w-4 h-4" />
+                                            Экзамен сдан
+                                        </button>
+                                    )}
+
+                                    {showCompleteStudy && (
+                                        <button
+                                            onClick={() => onUpdateStatus(log.id, 'study_completed')}
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze"
+                                            title="Завершить изучение: Прогресс станет 100%"
+                                        >
+                                            <BookOpen className="w-4 h-4" />
+                                            Завершить изучение
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </>
@@ -293,6 +398,11 @@ const LogItem: React.FC<{
                 <GraduationCap className="w-5 h-5" /> Экзамен сдан
             </div>
         )}
+         {canModerate && log.status === 'study_completed' && (
+            <div className="text-hogwarts-gold font-bold flex items-center gap-2 px-4 py-2">
+                <BookOpen className="w-5 h-5" /> Изучение завершено
+            </div>
+        )}
          {canModerate && log.status === 'rejected' && (
             <div className="text-hogwarts-red font-bold flex items-center gap-2 px-4 py-2">
                 <X className="w-5 h-5" /> Отклонено
@@ -304,9 +414,11 @@ const LogItem: React.FC<{
 };
 
 export const SkillDetail: React.FC = () => {
-  const { skillName, username } = useParams<{ skillName: string; username?: string }>();
+  const { skillName, username: routeUsername } = useParams<{ skillName: string; username?: string }>();
   const [searchParams] = useSearchParams();
   const forcePersonalView = searchParams.get('view') === 'personal';
+  const queryUsername = searchParams.get('username');
+  const username = routeUsername || queryUsername; // Support both route and query param
   
   const [logs, setLogs] = useState<Log[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -324,7 +436,8 @@ export const SkillDetail: React.FC = () => {
   
   const isGlobalAdmin = user?.role === 'admin';
   const isModerator = user?.role === 'moderator' && skillName && user.managed_skills?.includes(decodeURIComponent(skillName));
-  const isAdmin = (isGlobalAdmin || isModerator) && !forcePersonalView && !username;
+  const canModerate = isGlobalAdmin || isModerator;
+  const isAdmin = canModerate && !forcePersonalView && !username;
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -404,13 +517,13 @@ export const SkillDetail: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected' | 'exam_passed') => {
+  const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => {
     const logToUpdate = logs.find(log => log.id === id);
     if (!logToUpdate) return;
 
     // Logic to determine optimistic update behavior
     const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(decodeURIComponent(skillName || ''));
-    const isApproval = status === 'approved' || status === 'exam_passed';
+    const isApproval = status === 'approved' || status === 'exam_passed' || status === 'study_completed';
     // If moderator approves, it stays in pending list (just marked), unless we are viewing approved logs (unlikely for action)
     const shouldKeepInList = isModerator && isApproval && viewMode === 'pending';
 
@@ -425,7 +538,7 @@ export const SkillDetail: React.FC = () => {
     }
 
     try {
-        await updateLogStatus(id, status);
+        await updateLogStatus(id, status, rejectionReason);
     } catch (e: any) {
         console.error("Failed to update status", e);
         alert(e.message || "Не удалось обновить статус свитка.");
@@ -454,6 +567,8 @@ export const SkillDetail: React.FC = () => {
     const dateB = new Date(b.created_at).getTime();
     return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
   });
+
+  const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
 
   return (
     <div className="min-h-screen relative">
@@ -533,6 +648,36 @@ export const SkillDetail: React.FC = () => {
                         <img 
                             src={spaceSvg} 
                             alt="Space Magic" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Провидение' ? (
+                        <img 
+                            src={divinationGoldSvg} 
+                            alt="Divination" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Легилименция' ? (
+                        <img 
+                            src={legilimentGoldSvg} 
+                            alt="Legilimency" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Окклюменция' ? (
+                        <img 
+                            src={occlumGoldSvg} 
+                            alt="Occlumency" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Самостоятельная левитация' ? (
+                        <img 
+                            src={levitGoldSvg} 
+                            alt="Self-Levitation" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
+                    ) : decodedSkillName === 'Некромантия' ? (
+                        <img 
+                            src={necroGoldSvg} 
+                            alt="Necromancy" 
                             className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
                     ) : (
@@ -630,7 +775,9 @@ export const SkillDetail: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {sortedLogs.map((log) => (
+            {sortedLogs
+                .filter(log => log.type !== 'completion_request')
+                .map((log) => (
               <LogItem 
                 key={log.id} 
                 log={log} 
@@ -642,6 +789,17 @@ export const SkillDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Floating Approval Button for Completion Request */}
+      {completionRequestLog && canModerate && (
+         <button
+             onClick={() => handleUpdateStatus(completionRequestLog.id, 'study_completed')}
+             className="fixed bottom-8 right-8 z-50 px-8 py-4 rounded-full bg-[#006633] text-white font-bold text-lg shadow-[0_0_20px_rgba(0,255,0,0.5)] hover:shadow-[0_0_30px_rgba(0,255,0,0.7)] transition-all animate-pulse-slow border-2 border-green-400/50 backdrop-blur-sm hover:scale-105"
+             style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
+         >
+             Одобрить завершение обучения
+         </button>
+      )}
     </div>
   );
 };
