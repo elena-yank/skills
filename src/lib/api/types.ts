@@ -6,6 +6,8 @@ export interface User {
   password?: string; // Only for admin display/edit, be careful
   avatar_url?: string;
   managed_skills?: string[]; // For moderators
+  race?: string;
+  age?: string;
 }
 
 export interface PracticeLog {
@@ -41,6 +43,20 @@ export interface Notification {
     created_at: string;
 }
 
+export interface RaceChangeRequest {
+    id: string;
+    user_id: string;
+    user_name?: string;
+    requested_race: string;
+    reason: string;
+    explanation: string;
+    status: 'pending' | 'approved' | 'rejected';
+    rejection_reason?: string;
+    admin_id?: string;
+    created_at: string;
+    processed_at?: string;
+}
+
 export interface SkillMetadata {
   skill_name: string;
   responsible_person_name?: string;
@@ -58,6 +74,7 @@ export interface ApiClient {
   };
   users: {
     updateAvatar: (id: string, avatarUrl: string) => Promise<User>;
+    updateProfile: (id: string, profile: { race: string; age: string }) => Promise<User>;
   };
   admin: {
     listUsers: () => Promise<User[]>;
@@ -82,5 +99,10 @@ export interface ApiClient {
       markAsRead: (id: string) => Promise<void>;
       markAllAsRead: (userId: string) => Promise<void>;
       delete: (id: string) => Promise<void>;
+  };
+  raceRequests: {
+      create: (request: Omit<RaceChangeRequest, 'id' | 'status' | 'created_at'>) => Promise<RaceChangeRequest>;
+      list: () => Promise<RaceChangeRequest[]>;
+      process: (id: string, data: { status: 'approved' | 'rejected', admin_id: string, rejection_reason?: string }) => Promise<RaceChangeRequest>;
   };
 }

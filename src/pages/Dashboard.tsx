@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload, Settings } from 'lucide-react';
 import { Notifications } from '../components/Notifications';
+import { SettingsModal } from '../components/SettingsModal';
 import { useStore, SKILL_CATEGORIES } from '../store';
 import { PracticeModal } from '../components/PracticeModal';
 import { SkillInfoModal } from '../components/SkillInfoModal';
@@ -27,6 +28,7 @@ export const Dashboard: React.FC = () => {
   
   const [isUploading, setIsUploading] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -277,35 +279,50 @@ export const Dashboard: React.FC = () => {
                   <p className="text-white text-sm md:text-lg font-century font-normal">
                     Добро пожаловать, {user?.name || 'Волшебник'}
                   </p>
+                </div>
+                <div className="flex flex-col md:flex-row items-center gap-4 mt-1 justify-center md:justify-start">
+                  {!showAdminInterface && (
+                    <button 
+                        onClick={handleCopyLink}
+                        className="text-xs flex items-center justify-center md:justify-start gap-1 text-white hover:text-hogwarts-gold font-nexa underline uppercase w-full md:w-auto"
+                    >
+                        {copied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                        {copied ? 'Ссылка скопирована' : 'Поделиться профилем'}
+                    </button>
+                  )}
                   {isRealAdmin && (
                     <button
                       onClick={() => setAdminView(!adminView)}
-                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm mt-2 md:mt-0 w-full md:w-auto"
+                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm whitespace-nowrap w-full md:w-auto"
                     >
                       {adminView ? 'Мои навыки' : 'Панель администратора'}
                     </button>
                   )}
                 </div>
-                {!showAdminInterface && (
-                  <button 
-                      onClick={handleCopyLink}
-                      className="text-xs flex items-center justify-center md:justify-start gap-1 text-white hover:text-hogwarts-gold mt-1 font-nexa underline uppercase w-full md:w-auto"
-                  >
-                      {copied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
-                      {copied ? 'Ссылка скопирована' : 'Поделиться профилем'}
-                  </button>
-                )}
               </div>
             </div>
-            <button
-              onClick={signOut}
-              className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto justify-center"
-            >
-              <LogOut className="w-5 h-5" />
-              Выйти
-            </button>
+            <div className="flex flex-col gap-2 w-full md:w-auto md:items-end">
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto justify-center md:justify-end"
+              >
+                <Settings className="w-5 h-5" />
+                Настройки
+              </button>
+              <button
+                onClick={signOut}
+                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto justify-center md:justify-end"
+              >
+                <LogOut className="w-5 h-5" />
+                Выйти
+              </button>
+            </div>
           </div>
         </div>
+
+        {showSettingsModal && (
+          <SettingsModal onClose={() => setShowSettingsModal(false)} />
+        )}
 
         <div className="space-y-12">
           {visibleCategories.map((category) => (

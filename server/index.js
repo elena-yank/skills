@@ -125,6 +125,29 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS moderator_proposed_status VARCHAR(50)
       `);
 
+      // Add race and age columns to wizards table
+      await client.query(`
+        ALTER TABLE wizards
+        ADD COLUMN IF NOT EXISTS race TEXT DEFAULT 'Человек',
+        ADD COLUMN IF NOT EXISTS age TEXT DEFAULT 'Хогвартс'
+      `);
+
+      // Add race_change_requests table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS race_change_requests (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
+            requested_race TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            explanation TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+            rejection_reason TEXT,
+            admin_id UUID REFERENCES wizards(id),
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            processed_at TIMESTAMPTZ
+        )
+      `);
+
       await client.query('COMMIT');
       console.log('Migrations completed successfully');
     } catch (err) {
@@ -188,7 +211,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users/:name', async (req, res) => {
     try {
       const name = req.params.name.replace(/_/g, ' '); // Decode URL friendly name
-      const result = await pool.query('SELECT id, name, avatar_url FROM wizards WHERE name ILIKE $1', [name]);
+      const result = await pool.query('SELECT id, name, avatar_url, race, age FROM wizards WHERE name ILIKE $1', [name]);
       if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Wizard not found' });
     }
@@ -202,7 +225,7 @@ app.get('/api/users/:name', async (req, res) => {
 // Auth: List All Users (Public)
 app.get('/api/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, role, avatar_url FROM wizards ORDER BY name ASC');
+        const result = await pool.query('SELECT id, name, role, avatar_url, race, age FROM wizards ORDER BY name ASC');
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -223,6 +246,38 @@ app.patch('/api/users/:id/avatar', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// User: Update Profile (Race & Age)
+app.patch('/api/users/:id/profile', async (req, res) => {
+    const { id } = req.params;
+    const { race, age } = req.body;
+    
+    try {
+        // Fetch current user state to check permissions and existing data
+        const userRes = await pool.query('SELECT role, race FROM wizards WHERE id = $1', [id]);
+        if (userRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const user = userRes.rows[0];
+
+        // Security check: Only admins can change race directly.
+        // Non-admins can only change age if they are trying to change race too.
+        if (user.role !== 'admin' && race !== user.race) {
+            return res.status(403).json({ 
+                error: 'Для смены расы необходимо подать заявку администрации.' 
+            });
+        }
+
+        const result = await pool.query(
+            'UPDATE wizards SET race = $1, age = $2 WHERE id = $3 RETURNING id, name, role, avatar_url, race, age',
+            [race, age, id]
+        );
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
@@ -696,6 +751,109 @@ app.patch('/api/logs/:id/status', async (req, res) => {
         
         res.json(result.rows[0]);
     } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Race Change Requests
+app.post('/api/race-requests', async (req, res) => {
+    const { user_id, requested_race, reason, explanation } = req.body;
+    try {
+        await pool.query('BEGIN');
+        
+        const result = await pool.query(
+            'INSERT INTO race_change_requests (user_id, requested_race, reason, explanation) VALUES ($1, $2, $3, $4) RETURNING *',
+            [user_id, requested_race, reason, explanation]
+        );
+        const request = result.rows[0];
+
+        // 1. Get User Name
+        const userRes = await pool.query('SELECT name FROM wizards WHERE id = $1', [user_id]);
+        const userName = userRes.rows[0]?.name || 'Волшебник';
+
+        // 2. Find Admins
+        const adminsRes = await pool.query("SELECT id FROM wizards WHERE role = 'admin'");
+
+        // 3. Create Notifications for Admins
+        for (const admin of adminsRes.rows) {
+            // Don't notify the user themselves if they happen to be admin
+            if (admin.id === user_id) continue;
+
+            await pool.query(
+                `INSERT INTO notifications (user_id, title, message, type, link)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [
+                    admin.id,
+                    'Заявка на смену расы',
+                    `${userName} хочет сменить расу на "${requested_race}". Причина: ${reason}`,
+                    'info',
+                    `race_request:${request.id}` // Special link format to trigger actions in frontend
+                ]
+            );
+        }
+
+        await pool.query('COMMIT');
+        res.json(request);
+    } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/race-requests', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT r.*, w.name as user_name 
+            FROM race_change_requests r 
+            JOIN wizards w ON r.user_id = w.id 
+            WHERE r.status = 'pending'
+            ORDER BY r.created_at DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.patch('/api/race-requests/:id', async (req, res) => {
+    const { id } = req.params;
+    const { status, rejection_reason, admin_id } = req.body;
+    try {
+        await pool.query('BEGIN');
+
+        const requestRes = await pool.query('SELECT * FROM race_change_requests WHERE id = $1', [id]);
+        if (requestRes.rows.length === 0) {
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ error: 'Request not found' });
+        }
+        const request = requestRes.rows[0];
+
+        const updateRes = await pool.query(
+            'UPDATE race_change_requests SET status = $1, rejection_reason = $2, admin_id = $3, processed_at = NOW() WHERE id = $4 RETURNING *',
+            [status, rejection_reason || null, admin_id, id]
+        );
+
+        if (status === 'approved') {
+            await pool.query('UPDATE wizards SET race = $1 WHERE id = $2', [request.requested_race, request.user_id]);
+            
+            await pool.query(
+                'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+                [request.user_id, 'Заявка на смену расы одобрена!', `Ваша заявка на расу "${request.requested_race}" была одобрена администратором.`, 'success']
+            );
+        } else if (status === 'rejected') {
+            await pool.query(
+                'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+                [request.user_id, 'Заявка на смену расы отклонена', `Ваша заявка на расу "${request.requested_race}" была отклонена. Причина: ${rejection_reason || 'не указана'}.`, 'error']
+            );
+        }
+
+        await pool.query('COMMIT');
+        res.json(updateRes.rows[0]);
+    } catch (err) {
+        await pool.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }

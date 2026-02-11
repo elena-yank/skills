@@ -284,7 +284,7 @@ export const PublicProfile: React.FC = () => {
                     />
 
                     <div className="text-center md:text-left">
-                        <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold mb-2">{username?.replace(/_/g, ' ')}</h2>
+                        <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold mb-1">{username?.replace(/_/g, ' ')}</h2>
                         <p className="text-white text-base md:text-xl font-century">
                             Карточка навыков
                         </p>

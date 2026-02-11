@@ -9,6 +9,8 @@ export interface Wizard {
   role: 'user' | 'admin' | 'moderator';
   avatar_url?: string;
   managed_skills?: string[];
+  race?: string;
+  age?: string;
 }
 
 export interface Skill {
@@ -32,6 +34,7 @@ interface AppState {
   notifications: Notification[];
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
+  updateProfile: (race: string, age: string) => Promise<void>;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
   fetchNotifications: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -102,6 +105,18 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.removeItem(STORAGE_KEY);
     }
     set({ user });
+  },
+
+  updateProfile: async (race, age) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+        const updatedUser = await api.users.updateProfile(user.id, { race, age });
+        get().setUser({ ...user, race: updatedUser.race, age: updatedUser.age });
+    } catch (error) {
+        console.error('Failed to update profile:', error);
+        throw error;
+    }
   },
 
   fetchNotifications: async () => {

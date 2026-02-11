@@ -1,14 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, Check, Info, XCircle, CheckCircle, Trash2, CheckSquare } from 'lucide-react';
+import { Bell, Check, Info, XCircle, CheckCircle, Trash2, CheckSquare, Clock } from 'lucide-react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
-import { Notification } from '../lib/api/types';
+import { Notification, RaceChangeRequest } from '../lib/api/types';
+import { api } from '../lib/api';
 
 export const Notifications: React.FC = () => {
-    const { notifications, fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } = useStore();
+    const { user, notifications, fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } = useStore();
     const [isOpen, setIsOpen] = useState(false);
+    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+    const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
     const navigate = useNavigate();
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const isAdmin = user?.role === 'admin';
 
     useEffect(() => {
         fetchNotifications();
@@ -33,9 +38,44 @@ export const Notifications: React.FC = () => {
         if (!notification.read) {
             await markNotificationAsRead(notification.id);
         }
-        if (notification.link) {
+        if (notification.link && !notification.link.startsWith('race_request:')) {
             navigate(notification.link);
             setIsOpen(false);
+        }
+    };
+
+    const handleProcessRaceRequest = async (e: React.MouseEvent, notificationId: string, requestId: string, status: 'approved' | 'rejected') => {
+        e.stopPropagation();
+        if (!user) return;
+
+        if (status === 'rejected' && !rejectionReasons[requestId]) {
+            alert('Пожалуйста, укажите причину отказа');
+            return;
+        }
+
+        setProcessingRequestId(requestId);
+        try {
+            await api.raceRequests.process(requestId, {
+                status,
+                admin_id: user.id,
+                rejection_reason: rejectionReasons[requestId]
+            });
+            
+            // Mark notification as read and then delete it since it's processed
+            await markNotificationAsRead(notificationId);
+            await deleteNotification(notificationId);
+            
+            // Clear rejection reason
+            setRejectionReasons(prev => {
+                const next = { ...prev };
+                delete next[requestId];
+                return next;
+            });
+        } catch (err) {
+            console.error('Error processing race request:', err);
+            alert('Ошибка при обработке заявки');
+        } finally {
+            setProcessingRequestId(null);
         }
     };
 
@@ -100,45 +140,79 @@ export const Notifications: React.FC = () => {
                             </div>
                         ) : (
                             <div className="divide-y divide-hogwarts-bronze/20">
-                                {notifications.map(notification => (
-                                    <div 
-                                        key={notification.id}
-                                        onClick={() => handleNotificationClick(notification)}
-                                        className={`p-4 hover:bg-hogwarts-parchment/50 transition-colors cursor-pointer flex gap-3 group relative ${!notification.read ? 'bg-hogwarts-gold/5' : ''}`}
-                                    >
-                                        <div className="shrink-0 mt-1">
-                                            {getIcon(notification.type)}
+                                {notifications.map(notification => {
+                                    const isRaceRequest = notification.link?.startsWith('race_request:');
+                                    const requestId = isRaceRequest ? notification.link?.split(':')[1] : null;
+
+                                    return (
+                                        <div 
+                                            key={notification.id}
+                                            onClick={() => handleNotificationClick(notification)}
+                                            className={`p-4 hover:bg-hogwarts-parchment/50 transition-colors cursor-pointer flex gap-3 group relative ${!notification.read ? 'bg-hogwarts-gold/5' : ''}`}
+                                        >
+                                            <div className="shrink-0 mt-1">
+                                                {isRaceRequest ? <Clock className="w-5 h-5 text-hogwarts-blue" /> : getIcon(notification.type)}
+                                            </div>
+                                            <div className="flex-1 pr-6">
+                                                <h4 className={`font-serif text-sm font-bold text-hogwarts-ink ${!notification.read ? 'text-hogwarts-blue' : ''}`}>
+                                                    {notification.title}
+                                                </h4>
+                                                <p className="text-sm text-hogwarts-ink/80 mt-1 font-century leading-snug">
+                                                    {notification.message}
+                                                </p>
+
+                                                {isRaceRequest && requestId && (
+                                                    <div className="mt-3 space-y-2" onClick={e => e.stopPropagation()}>
+                                                        <input
+                                                            type="text"
+                                                            value={rejectionReasons[requestId] || ''}
+                                                            onChange={(e) => setRejectionReasons(prev => ({ ...prev, [requestId]: e.target.value }))}
+                                                            placeholder="Причина отказа..."
+                                                            className="w-full px-2 py-1 text-xs border rounded bg-white focus:ring-1 focus:ring-hogwarts-red outline-none"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={(e) => handleProcessRaceRequest(e, notification.id, requestId, 'approved')}
+                                                                disabled={!!processingRequestId}
+                                                                className="flex-1 bg-green-600 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                                            >
+                                                                ОДОБРИТЬ
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => handleProcessRaceRequest(e, notification.id, requestId, 'rejected')}
+                                                                disabled={!!processingRequestId}
+                                                                className="flex-1 bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                                            >
+                                                                ОТКЛОНИТЬ
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <span className="text-xs text-hogwarts-ink/40 mt-2 block">
+                                                    {new Date(notification.created_at).toLocaleDateString('ru-RU', {
+                                                        day: 'numeric',
+                                                        month: 'long',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
+                                            <div className="absolute right-2 top-2 flex flex-col gap-2">
+                                                 {!notification.read && (
+                                                    <div className="w-2 h-2 bg-hogwarts-red rounded-full self-end mb-1"></div>
+                                                )}
+                                                <button
+                                                    onClick={(e) => handleDelete(e, notification.id)}
+                                                    className="p-1 text-hogwarts-ink/30 hover:text-hogwarts-red transition-colors opacity-0 group-hover:opacity-100 rounded-full hover:bg-hogwarts-red/10"
+                                                    title="Удалить уведомление"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 pr-6">
-                                            <h4 className={`font-serif text-sm font-bold text-hogwarts-ink ${!notification.read ? 'text-hogwarts-blue' : ''}`}>
-                                                {notification.title}
-                                            </h4>
-                                            <p className="text-sm text-hogwarts-ink/80 mt-1 font-century leading-snug">
-                                                {notification.message}
-                                            </p>
-                                            <span className="text-xs text-hogwarts-ink/40 mt-2 block">
-                                                {new Date(notification.created_at).toLocaleDateString('ru-RU', {
-                                                    day: 'numeric',
-                                                    month: 'long',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </span>
-                                        </div>
-                                        <div className="absolute right-2 top-2 flex flex-col gap-2">
-                                             {!notification.read && (
-                                                <div className="w-2 h-2 bg-hogwarts-red rounded-full self-end mb-1"></div>
-                                            )}
-                                            <button
-                                                onClick={(e) => handleDelete(e, notification.id)}
-                                                className="p-1 text-hogwarts-ink/30 hover:text-hogwarts-red transition-colors opacity-0 group-hover:opacity-100 rounded-full hover:bg-hogwarts-red/10"
-                                                title="Удалить уведомление"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

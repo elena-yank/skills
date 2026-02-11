@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useStore, SKILL_CATEGORIES } from '../store';
-import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap, ChevronDown, ChevronUp, Check, XCircle, Clock } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-import { User, SkillMetadata } from '../lib/api/types';
+import { User, SkillMetadata, RaceChangeRequest } from '../lib/api/types';
 
 export const DatabaseAdmin: React.FC = () => {
   const { user } = useStore();
@@ -11,6 +11,12 @@ export const DatabaseAdmin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   
+  // Race Change Requests State
+  const [raceRequests, setRaceRequests] = useState<RaceChangeRequest[]>([]);
+  const [isRaceRequestsOpen, setIsRaceRequestsOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<Record<string, string>>({});
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+
   // Skill Metadata State
   const [skillMetadata, setSkillMetadata] = useState<Record<string, SkillMetadata>>({});
   const [isSavingSkill, setIsSavingSkill] = useState<Record<string, boolean>>({});
@@ -18,7 +24,53 @@ export const DatabaseAdmin: React.FC = () => {
 
   useEffect(() => {
     fetchSkillMetadata();
+    fetchRaceRequests();
   }, []);
+
+  const fetchRaceRequests = async () => {
+    try {
+      const data = await api.raceRequests?.list();
+      setRaceRequests(data || []);
+    } catch (err) {
+      console.error('Error fetching race requests:', err);
+    }
+  };
+
+  const handleProcessRaceRequest = async (requestId: string, status: 'approved' | 'rejected') => {
+    if (!user) return;
+    
+    if (status === 'rejected' && !rejectionReason[requestId]) {
+      alert('Пожалуйста, укажите причину отказа');
+      return;
+    }
+
+    setProcessingRequestId(requestId);
+    try {
+      await api.raceRequests?.process(requestId, {
+        status,
+        admin_id: user.id,
+        rejection_reason: rejectionReason[requestId]
+      });
+      
+      // Update local state
+      setRaceRequests(prev => prev.filter(r => r.id !== requestId));
+      setRejectionReason(prev => {
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
+      
+      // If approved, we might want to refresh users list too
+      if (status === 'approved') {
+        fetchUsers();
+      }
+    } catch (err) {
+      console.error('Error processing race request:', err);
+      alert('Ошибка при обработке заявки');
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
 
   const fetchSkillMetadata = async () => {
       try {
@@ -271,6 +323,100 @@ export const DatabaseAdmin: React.FC = () => {
             Добавить пользователя
           </button>
         </header>
+
+        {/* Race Change Requests Section */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <button 
+                onClick={() => setIsRaceRequestsOpen(!isRaceRequestsOpen)}
+                className="w-full flex items-center justify-between text-left group"
+            >
+                <div className="flex items-center gap-3">
+                  <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 group-hover:text-hogwarts-gold transition-colors">
+                      <Clock className="w-6 h-6" />
+                      Заявки на смену расы
+                  </h2>
+                  {raceRequests.length > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                      {raceRequests.length}
+                    </span>
+                  )}
+                </div>
+                {isRaceRequestsOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                )}
+            </button>
+            
+            {isRaceRequestsOpen && (
+                <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-top-2">
+                    {raceRequests.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4 font-century italic">
+                        Нет активных заявок на рассмотрении
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {raceRequests.map(request => (
+                          <div key={request.id} className="border-2 border-hogwarts-bronze/20 rounded-lg p-4 bg-hogwarts-white/50 hover:bg-white transition-colors">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                              <div>
+                                <h3 className="font-bold text-lg text-hogwarts-ink flex items-center gap-2">
+                                  {request.user_name}
+                                  <span className="text-sm font-normal text-gray-500">подал заявку на</span>
+                                  <span className="text-hogwarts-blue">"{request.requested_race}"</span>
+                                </h3>
+                                <p className="text-xs text-gray-400 font-century">
+                                  {new Date(request.created_at).toLocaleString('ru-RU')}
+                                </p>
+                              </div>
+                              <div className="flex gap-2 w-full md:w-auto">
+                                <button
+                                  onClick={() => handleProcessRaceRequest(request.id, 'approved')}
+                                  disabled={!!processingRequestId}
+                                  className="flex-1 md:flex-none bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-bold text-sm disabled:opacity-50"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  Одобрить
+                                </button>
+                                <button
+                                  onClick={() => handleProcessRaceRequest(request.id, 'rejected')}
+                                  disabled={!!processingRequestId}
+                                  className="flex-1 md:flex-none bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-bold text-sm disabled:opacity-50"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Отказать
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div className="bg-gray-50 p-3 rounded border border-gray-100">
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Причина</span>
+                                <p className="text-sm text-gray-700 font-century">{request.reason}</p>
+                              </div>
+                              <div className="bg-gray-50 p-3 rounded border border-gray-100">
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Обоснование (лор)</span>
+                                <p className="text-sm text-gray-700 font-century">{request.explanation}</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-2">
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Комментарий при отказе (обязательно для отказа)</label>
+                              <input
+                                type="text"
+                                value={rejectionReason[request.id] || ''}
+                                onChange={(e) => setRejectionReason(prev => ({ ...prev, [request.id]: e.target.value }))}
+                                placeholder="Например: Недостаточное обоснование роли в истории"
+                                className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-red outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+            )}
+        </div>
 
         {/* Skills Management Section */}
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">

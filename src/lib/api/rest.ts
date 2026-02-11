@@ -45,6 +45,16 @@ export const restApi: ApiClient = {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       return data as User;
+    },
+    updateProfile: async (id, profile) => {
+      const res = await fetch(`${API_URL}/users/${id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as User;
     }
   },
   admin: {
@@ -202,6 +212,34 @@ export const restApi: ApiClient = {
               const data = await res.json();
               throw new Error(data.error);
           }
+      }
+  },
+  raceRequests: {
+      create: async (request) => {
+          const res = await fetch(`${API_URL}/race-requests`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(request),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data;
+      },
+      list: async () => {
+          const res = await fetch(`${API_URL}/race-requests`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data;
+      },
+      process: async (id, data) => {
+          const res = await fetch(`${API_URL}/race-requests/${id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data),
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error);
+          return result;
       }
   }
 };

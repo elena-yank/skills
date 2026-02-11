@@ -143,17 +143,27 @@ export const WizardList: React.FC = () => {
                             wizard.name.charAt(0)
                         )}
                     </div>
-                    <div>
+                    <div className="flex flex-col gap-1">
                         <h3 className="text-xl font-bold font-seminaria text-hogwarts-ink group-hover:text-hogwarts-red transition-colors">
                             {wizard.name}
                         </h3>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
-                            wizard.role === 'admin' 
-                                ? 'bg-hogwarts-red/10 text-hogwarts-red border border-hogwarts-red/20' 
-                                : 'bg-hogwarts-green/10 text-hogwarts-green border border-hogwarts-green/20'
-                        }`}>
-                            {wizard.role === 'admin' ? 'Администратор' : 'Участник'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
+                                wizard.role === 'admin' 
+                                    ? 'bg-hogwarts-red/10 text-hogwarts-red border border-hogwarts-red/20' 
+                                    : 'bg-hogwarts-green/10 text-hogwarts-green border border-hogwarts-green/20'
+                            }`}>
+                                {wizard.role === 'admin' ? 'Администратор' : 'Участник'}
+                            </span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full font-nexa bg-hogwarts-blue/10 text-hogwarts-blue border border-hogwarts-blue/20">
+                                {wizard.race || 'Человек'}
+                            </span>
+                            {wizard.age && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full font-nexa bg-hogwarts-bronze/10 text-hogwarts-bronze border border-hogwarts-bronze/20">
+                                    {wizard.age}
+                                </span>
+                            )}
+                        </div>
                     </div>
                  </div>
               </div>

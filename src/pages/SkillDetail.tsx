@@ -429,6 +429,9 @@ export const SkillDetail: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [applicationLog, setApplicationLog] = useState<Log | null>(null);
+  
+  const [showCompletionRejectModal, setShowCompletionRejectModal] = useState(false);
+  const [completionRejectionReason, setCompletionRejectionReason] = useState('');
 
   // If username is present, we are viewing a specific user's history (Public Profile mode),
   // so we should NOT show the global admin dashboard even if the user is an admin.
@@ -549,6 +552,15 @@ export const SkillDetail: React.FC = () => {
              setLogs(prevLogs => [...prevLogs, logToUpdate]);
         }
     }
+  };
+
+  const handleRejectCompletion = async () => {
+      const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
+      if (!completionRequestLog) return;
+      
+      setShowCompletionRejectModal(false);
+      await handleUpdateStatus(completionRequestLog.id, 'rejected', completionRejectionReason);
+      setCompletionRejectionReason('');
   };
 
   const decodedSkillName = decodeURIComponent(skillName || '');
@@ -790,15 +802,58 @@ export const SkillDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Floating Approval Button for Completion Request */}
+      {/* Floating Action Buttons for Completion Request */}
       {completionRequestLog && canModerate && (
-         <button
-             onClick={() => handleUpdateStatus(completionRequestLog.id, 'study_completed')}
-             className="fixed bottom-8 right-8 z-50 px-8 py-4 rounded-full bg-[#006633] text-white font-bold text-lg shadow-[0_0_20px_rgba(0,255,0,0.5)] hover:shadow-[0_0_30px_rgba(0,255,0,0.7)] transition-all animate-pulse-slow border-2 border-green-400/50 backdrop-blur-sm hover:scale-105"
-             style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
-         >
-             Одобрить завершение обучения
-         </button>
+         <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
+             <button
+                 onClick={() => handleUpdateStatus(completionRequestLog.id, 'study_completed')}
+                 className="px-8 py-4 rounded-full bg-[#006633] text-white font-bold text-lg shadow-[0_0_20px_rgba(0,255,0,0.5)] hover:shadow-[0_0_30px_rgba(0,255,0,0.7)] transition-all animate-pulse-slow border-2 border-green-400/50 backdrop-blur-sm hover:scale-105"
+                 style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
+             >
+                 Одобрить завершение обучения
+             </button>
+             
+             <button
+                 onClick={() => setShowCompletionRejectModal(true)}
+                 className="px-6 py-3 rounded-full bg-hogwarts-red/90 text-white font-bold text-base shadow-[0_0_15px_rgba(255,0,0,0.4)] hover:shadow-[0_0_25px_rgba(255,0,0,0.6)] transition-all border-2 border-red-400/50 backdrop-blur-sm hover:scale-105"
+                 style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
+             >
+                 Отклонить завершение обучения
+             </button>
+         </div>
+      )}
+
+      {/* Completion Rejection Modal */}
+      {showCompletionRejectModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl border-2 border-hogwarts-red animate-in fade-in zoom-in duration-200">
+                <h3 className="text-xl font-serif font-bold text-hogwarts-red mb-4">Укажите причину отказа</h3>
+                <textarea
+                    value={completionRejectionReason}
+                    onChange={(e) => setCompletionRejectionReason(e.target.value)}
+                    className="w-full p-3 border-2 border-hogwarts-bronze rounded-lg mb-6 font-century focus:outline-none focus:border-hogwarts-red resize-none min-h-[100px]"
+                    placeholder="Почему обучение не может быть завершено?"
+                />
+                <div className="flex gap-4 justify-end">
+                    <button
+                        onClick={() => {
+                            setShowCompletionRejectModal(false);
+                            setCompletionRejectionReason('');
+                        }}
+                        className="px-4 py-2 rounded-lg border border-hogwarts-bronze text-hogwarts-ink hover:bg-hogwarts-parchment transition-colors font-serif font-bold"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        onClick={handleRejectCompletion}
+                        disabled={!completionRejectionReason.trim()}
+                        className="px-6 py-2 rounded-lg bg-hogwarts-red text-white font-bold hover:bg-red-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-serif"
+                    >
+                        Отклонить
+                    </button>
+                </div>
+            </div>
+        </div>
       )}
     </div>
   );
