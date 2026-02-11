@@ -428,7 +428,7 @@ export const SkillDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'pending' | 'approved'>('pending'); // For admin
   const navigate = useNavigate();
-  const { user, deletePracticeLog, updateLogStatus } = useStore();
+  const { user, deletePracticeLog, updateLogStatus, fetchSkills } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [showApplicationModal, setShowApplicationModal] = useState(false);
