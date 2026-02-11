@@ -8,6 +8,7 @@ export interface User {
   managed_skills?: string[]; // For moderators
   race?: string;
   age?: string;
+  faculty?: string;
 }
 
 export interface PracticeLog {
@@ -75,7 +76,7 @@ export interface ApiClient {
   };
   users: {
     updateAvatar: (id: string, avatarUrl: string) => Promise<User>;
-    updateProfile: (id: string, profile: { race: string; age: string }) => Promise<User>;
+    updateProfile: (id: string, profile: { race: string; age: string; faculty?: string }) => Promise<User>;
   };
   admin: {
     listUsers: () => Promise<User[]>;

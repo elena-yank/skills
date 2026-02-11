@@ -125,11 +125,12 @@ const runMigrations = async () => {
         ADD COLUMN IF NOT EXISTS moderator_proposed_status VARCHAR(50)
       `);
 
-      // Add race and age columns to wizards table
+      // Add race, age and faculty columns to wizards table
       await client.query(`
         ALTER TABLE wizards
         ADD COLUMN IF NOT EXISTS race TEXT DEFAULT 'Человек',
-        ADD COLUMN IF NOT EXISTS age TEXT DEFAULT 'Хогвартс'
+        ADD COLUMN IF NOT EXISTS age TEXT DEFAULT 'Хогвартс',
+        ADD COLUMN IF NOT EXISTS faculty TEXT
       `);
 
       // Add race_change_requests table
@@ -211,7 +212,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users/:name', async (req, res) => {
     try {
       const name = req.params.name.replace(/_/g, ' '); // Decode URL friendly name
-      const result = await pool.query('SELECT id, name, avatar_url, race, age FROM wizards WHERE name ILIKE $1', [name]);
+      const result = await pool.query('SELECT id, name, avatar_url, race, age, faculty FROM wizards WHERE name ILIKE $1', [name]);
       if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Wizard not found' });
     }
@@ -225,7 +226,7 @@ app.get('/api/users/:name', async (req, res) => {
 // Auth: List All Users (Public)
 app.get('/api/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, role, avatar_url, race, age FROM wizards ORDER BY name ASC');
+        const result = await pool.query('SELECT id, name, role, avatar_url, race, age, faculty FROM wizards ORDER BY name ASC');
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -253,10 +254,10 @@ app.patch('/api/users/:id/avatar', async (req, res) => {
     }
 });
 
-// User: Update Profile (Race & Age)
+// User: Update Profile (Race & Age & Faculty)
 app.patch('/api/users/:id/profile', async (req, res) => {
     const { id } = req.params;
-    const { race, age } = req.body;
+    const { race, age, faculty } = req.body;
     
     try {
         // Fetch current user state to check permissions and existing data
@@ -267,7 +268,7 @@ app.patch('/api/users/:id/profile', async (req, res) => {
         const user = userRes.rows[0];
 
         // Security check: Only admins can change race directly.
-        // Non-admins can only change age if they are trying to change race too.
+        // Non-admins can only change age/faculty if they are trying to change race too.
         if (user.role !== 'admin' && race !== user.race) {
             return res.status(403).json({ 
                 error: 'Для смены расы необходимо подать заявку администрации.' 
@@ -275,8 +276,8 @@ app.patch('/api/users/:id/profile', async (req, res) => {
         }
 
         const result = await pool.query(
-            'UPDATE wizards SET race = $1, age = $2 WHERE id = $3 RETURNING id, name, role, avatar_url, race, age',
-            [race, age, id]
+            'UPDATE wizards SET race = $1, age = $2, faculty = $3 WHERE id = $4 RETURNING id, name, role, avatar_url, race, age, faculty',
+            [race, age, faculty, id]
         );
         res.json(result.rows[0]);
     } catch (err) {

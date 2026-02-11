@@ -18,6 +18,13 @@ const RACES = [
 
 const FRACTIONS = ['½', '¼', '⅛'];
 
+const FACULTIES = [
+  'Гриффиндор',
+  'Когтевран',
+  'Пуффендуй',
+  'Слизерин'
+];
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const { user, updateProfile } = useStore();
   
@@ -35,6 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const initialState = getInitialRaceState();
   const [race, setRace] = useState(initialState.base);
   const [age, setAge] = useState(user?.age || 'Хогвартс');
+  const [faculty, setFaculty] = useState(user?.faculty || 'Гриффиндор');
   const [fraction, setFraction] = useState(initialState.fraction);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -97,7 +105,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     try {
       // If it's not an admin and the race is NOT changed (only age changed), 
       // or if it IS an admin, they can proceed with updateProfile.
-      await updateProfile(getFinalRace(), age);
+      await updateProfile(getFinalRace(), age, age === 'Хогвартс' ? faculty : undefined);
       onClose();
     } catch (error) {
       console.error(error);
@@ -250,6 +258,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   </label>
                 </div>
               </div>
+
+              {/* Faculty Selection (only if Hogwarts is selected) */}
+              {age === 'Хогвартс' && (
+                <div className="animate-fadeIn">
+                  <label className="block text-sm font-bold text-hogwarts-ink mb-2 font-nexa uppercase">
+                    Факультет
+                  </label>
+                  <select
+                    value={faculty}
+                    onChange={(e) => setFaculty(e.target.value)}
+                    className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-century"
+                  >
+                    {FACULTIES.map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </>
           )}
         </div>

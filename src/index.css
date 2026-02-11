@@ -61,4 +61,13 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #946B2D;
   }
+
+  @keyframes glass-shimmer {
+    0% { transform: translateX(-200%) skewX(-25deg); }
+    100% { transform: translateX(200%) skewX(-25deg); }
+  }
+
+  .animate-glass-shimmer {
+    animation: glass-shimmer 4s infinite;
+  }
 }

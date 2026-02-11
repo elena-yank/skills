@@ -12,6 +12,7 @@ import { User } from '../lib/api/types';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
+import gryffindorEmblem from '../assets/gryffindor.svg';
 
 interface Skill {
   id: string;
@@ -329,7 +330,7 @@ export const PublicProfile: React.FC = () => {
                   alt="Frame"
                   className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
                 />
-                 <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
+                <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
 
                 <div className="relative z-10 flex flex-col md:flex-row gap-4 items-center px-4 py-6 md:px-12 md:py-8">
                     <div className="relative">
@@ -364,8 +365,10 @@ export const PublicProfile: React.FC = () => {
                     />
 
                     <div className="text-center md:text-left">
-                        <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold mb-1">{username?.replace(/_/g, ' ')}</h2>
-                        <p className="text-white text-base md:text-xl font-century">
+                        <h2 className="text-xl md:text-4xl font-seminaria font-bold text-hogwarts-gold mb-1">
+                          {username?.replace(/_/g, ' ')}
+                        </h2>
+                        <p className="text-base md:text-xl text-white font-century">
                             Карточка навыков
                         </p>
                     </div>

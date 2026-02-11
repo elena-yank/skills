@@ -11,6 +11,7 @@ export interface Wizard {
   managed_skills?: string[];
   race?: string;
   age?: string;
+  faculty?: string;
 }
 
 export interface Skill {
@@ -34,7 +35,7 @@ interface AppState {
   notifications: Notification[];
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
-  updateProfile: (race: string, age: string) => Promise<void>;
+  updateProfile: (race: string, age: string, faculty?: string) => Promise<void>;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
   fetchNotifications: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -107,12 +108,12 @@ export const useStore = create<AppState>((set, get) => ({
     set({ user });
   },
 
-  updateProfile: async (race, age) => {
+  updateProfile: async (race, age, faculty) => {
     const { user } = get();
     if (!user) return;
     try {
-        const updatedUser = await api.users.updateProfile(user.id, { race, age });
-        get().setUser({ ...user, race: updatedUser.race, age: updatedUser.age });
+        const updatedUser = await api.users.updateProfile(user.id, { race, age, faculty });
+        get().setUser({ ...user, race: updatedUser.race, age: updatedUser.age, faculty: updatedUser.faculty });
     } catch (error) {
         console.error('Failed to update profile:', error);
         throw error;
