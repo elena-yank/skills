@@ -179,48 +179,73 @@ export const Dashboard: React.FC = () => {
     // Skills are NEVER blocked in admin/moderator view
     if (showAdminInterface) return null;
     
-    if (!user?.race) return null;
-    const race = user.race.toLowerCase();
-    
-    // Animagi restrictions
-    if (skillName === 'Анимагия') {
-        if (race.includes('вейла')) return 'ВЕЙЛАМ';
-        if (race.includes('великан')) return 'ВЕЛИКАНАМ';
-        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    // Check Race restrictions FIRST (requested priority)
+    if (user?.race) {
+        const race = user.race.toLowerCase();
+        
+        // Animagi restrictions
+        if (skillName === 'Анимагия') {
+            if (race.includes('вейла')) return 'ВЕЙЛАМ';
+            if (race.includes('великан')) return 'ВЕЛИКАНАМ';
+            if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+        }
+
+        // Mortimagic, Metamorphomagic, Providence restrictions
+        if (['Мортимагия', 'Метаморфомагия', 'Провидение'].includes(skillName)) {
+            if (race.includes('вейла')) return 'ВЕЙЛАМ';
+            if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+        }
+        
+        // Giant restrictions for multiple skills
+        const blockedForGiants = [
+            'Артефакторика', 
+            'Магия пространства', 
+            'Мортимагия', 
+            'Самостоятельная левитация', 
+            'Легилименция', 
+            'Окклюменция', 
+            'Метаморфомагия', 
+            'Провидение',
+            'Некромантия'
+        ];
+        
+        // Vampire & Dhampir restrictions
+        const blockedForVampires = [
+            'Магия пространства', 
+            'Телесный патронус', 
+            'Трансгрессия', 
+            'Метаморфомагия', 
+            'Провидение'
+        ];
+        if (blockedForVampires.includes(skillName)) {
+            if (race.includes('вампир')) return 'ВАМПИРАМ';
+            if (race.includes('дампир')) return 'ДАМПИРАМ';
+        }
+
+        if (blockedForGiants.includes(skillName)) {
+            if (race.includes('великан')) return 'ВЕЛИКАНАМ';
+        }
     }
 
-    // Mortimagic, Metamorphomagic, Providence restrictions
-    if (['Мортимагия', 'Метаморфомагия', 'Провидение'].includes(skillName)) {
-        if (race.includes('вейла')) return 'ВЕЙЛАМ';
-        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    // Check Mutually exclusive skills AFTER race checks
+    const animagiaSkill = skills.find(s => s.name === 'Анимагия');
+    const mortimagiaSkill = skills.find(s => s.name === 'Мортимагия');
+    const spaceMagicSkill = skills.find(s => s.name === 'Магия пространства');
+    const transgressionSkill = skills.find(s => s.name === 'Трансгрессия');
+
+    if (skillName === 'Мортимагия' && animagiaSkill && (animagiaSkill.progress > 0 || animagiaSkill.level > 0)) {
+        return 'АНИМАГАМ НЕДОСТУПНА МОРТИМАГИЯ';
     }
-    
-    // Giant restrictions for multiple skills
-    const blockedForGiants = [
-        'Артефакторика', 
-        'Магия пространства', 
-        'Мортимагия', 
-        'Самостоятельная левитация', 
-        'Легилименция', 
-        'Окклюменция', 
-        'Метаморфомагия', 
-        'Провидение',
-        'Некромантия'
-    ];
-    
-    // Vampire & Dhampir restrictions
-    const blockedForVampires = [
-        'Магия пространства', 
-        'Телесный патронус', 
-        'Трансгрессия', 
-        'Метаморфомагия', 
-        'Провидение'
-    ];
-    if (blockedForVampires.includes(skillName)) {
-        if (race.includes('вампир')) return 'ВАМПИРАМ';
-        if (race.includes('дампир')) return 'ДАМПИРАМ';
+    if (skillName === 'Анимагия' && mortimagiaSkill && (mortimagiaSkill.progress > 0 || mortimagiaSkill.level > 0)) {
+        return 'МОРТИМАГАМ НЕДОСТУПНА АНИМАГИЯ';
     }
-    
+    if (skillName === 'Трансгрессия' && spaceMagicSkill && (spaceMagicSkill.progress > 0 || spaceMagicSkill.level > 0)) {
+        return 'МАГАМ ПРОСТРАНСТВА НЕДОСТУПНА ТРАНСГРЕССИЯ';
+    }
+    if (skillName === 'Магия пространства' && transgressionSkill && (transgressionSkill.progress > 0 || transgressionSkill.level > 0)) {
+        return 'ТРАНСГРЕССИРУЮЩИМ НЕДОСТУПНА МАГИЯ ПРОСТРАНСТВА';
+    }
+
     return null;
   };
 
@@ -407,9 +432,9 @@ export const Dashboard: React.FC = () => {
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           {isBlocked && (
-                            <div className="absolute inset-0 bg-black/20 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none px-4">
-                                <span className="text-white font-bold text-center text-sm md:text-base leading-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]" style={{ fontFamily: 'RobotoforLearning-Medium_0' }}>
-                                    ЭТОТ НАВЫК НЕДОСТУПЕН {blockReason}
+                            <div className="absolute inset-0 bg-black/30 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none px-6">
+                                <span className="text-white font-bold text-center text-xs md:text-sm lg:text-base leading-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)] uppercase" style={{ fontFamily: 'RobotoforLearning-Medium_0' }}>
+                                    {blockReason.includes('НЕДОСТУПНА') || blockReason.includes('НЕДОСТУПНО') ? blockReason : `ЭТОТ НАВЫК НЕДОСТУПЕН ${blockReason}`}
                                 </span>
                             </div>
                           )}

@@ -60,9 +60,15 @@ const LogItem: React.FC<{
     setShowConfirm(true);
   };
 
-  const confirmDelete = () => {
-    onDelete(log.id);
-    setShowConfirm(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    setIsDeleting(true);
+    // Wait for animation to play
+    setTimeout(() => {
+        onDelete(log.id);
+        setShowConfirm(false);
+    }, 500);
   };
 
   const handleReject = () => {
@@ -75,7 +81,7 @@ const LogItem: React.FC<{
 
   return (
     <article 
-      className={`bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden ${isGranted ? 'border-hogwarts-green/50 bg-green-50/30' : ''}`}
+      className={`bg-white p-4 md:p-8 rounded-lg shadow-md border-2 border-hogwarts-bronze relative overflow-hidden transition-all duration-500 ${isDeleting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'} ${isGranted ? 'border-hogwarts-green/50 bg-green-50/30' : ''}`}
     >
       {/* Overlays for User Status */}
       {!canModerate && log.status === 'pending' && (
@@ -388,14 +394,12 @@ const LogItem: React.FC<{
                 )}
             </div>
         )}
-         {canModerate && log.status === 'approved' && (
-            <div className="text-hogwarts-green font-bold flex items-center gap-2 px-4 py-2">
-                <Check className="w-5 h-5" /> Одобрено
-            </div>
-        )}
-         {canModerate && log.status === 'exam_passed' && (
-            <div className="text-[#006633] font-bold flex items-center gap-2 px-4 py-2">
-                <GraduationCap className="w-5 h-5" /> Экзамен сдан
+         {((canModerate && log.status === 'approved') || (canModerate && log.status === 'exam_passed')) && (
+            <div className="flex items-center gap-2">
+                <div className={`font-bold flex items-center gap-2 px-4 py-2 ${log.status === 'approved' ? 'text-hogwarts-green' : 'text-[#006633]'}`}>
+                    {log.status === 'approved' ? <Check className="w-5 h-5" /> : <GraduationCap className="w-5 h-5" />}
+                    {log.status === 'approved' ? 'Одобрено' : 'Экзамен сдан'}
+                </div>
             </div>
         )}
          {canModerate && log.status === 'study_completed' && (
@@ -512,6 +516,9 @@ export const SkillDetail: React.FC = () => {
 
     try {
         await deletePracticeLog(id);
+        // Refresh skills in store to update progress/blocking status everywhere
+        // Use true to view as regular user stats for accurate progress calculation
+        await fetchSkills(true);
     } catch (e) {
         console.error("Failed to delete log", e);
         alert("Не удалось уничтожить свиток. Магия дала сбой.");
@@ -542,6 +549,9 @@ export const SkillDetail: React.FC = () => {
 
     try {
         await updateLogStatus(id, status, rejectionReason);
+        // Refresh skills in store to update progress/blocking status everywhere
+        // Use true to view as regular user stats for accurate progress calculation
+        await fetchSkills(true);
     } catch (e: any) {
         console.error("Failed to update status", e);
         alert(e.message || "Не удалось обновить статус свитка.");

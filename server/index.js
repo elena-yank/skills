@@ -499,12 +499,27 @@ app.delete('/api/logs/:id', async (req, res) => {
   const { user_id } = req.body; // In real app, get from session/token
   
   try {
-    // Check ownership (simple version)
-    // In production, use JWT or session middleware
-    const result = await pool.query(
-        'DELETE FROM practice_logs WHERE id = $1 AND user_id = $2 RETURNING id',
-        [id, user_id]
-    );
+    // Fetch user to check role
+    const userRes = await pool.query('SELECT role FROM wizards WHERE id = $1', [user_id]);
+    if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+
+    let result;
+    if (user.role === 'admin') {
+        // Admin can delete ANY log
+        result = await pool.query(
+            'DELETE FROM practice_logs WHERE id = $1 RETURNING id',
+            [id]
+        );
+    } else {
+        // Regular users/moderators can only delete their OWN logs
+        result = await pool.query(
+            'DELETE FROM practice_logs WHERE id = $1 AND user_id = $2 RETURNING id',
+            [id, user_id]
+        );
+    }
     
     if (result.rows.length === 0) {
         return res.status(403).json({ error: 'Not authorized or log not found' });
