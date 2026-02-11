@@ -175,6 +175,55 @@ export const Dashboard: React.FC = () => {
   const isRealAdmin = user?.role === 'admin' || user?.role === 'moderator';
   const showAdminInterface = isRealAdmin && adminView;
 
+  const getSkillBlockReason = (skillName: string) => {
+    // Skills are NEVER blocked in admin/moderator view
+    if (showAdminInterface) return null;
+    
+    if (!user?.race) return null;
+    const race = user.race.toLowerCase();
+    
+    // Animagi restrictions
+    if (skillName === 'Анимагия') {
+        if (race.includes('вейла')) return 'ВЕЙЛАМ';
+        if (race.includes('великан')) return 'ВЕЛИКАНАМ';
+        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    }
+
+    // Mortimagic, Metamorphomagic, Providence restrictions
+    if (['Мортимагия', 'Метаморфомагия', 'Провидение'].includes(skillName)) {
+        if (race.includes('вейла')) return 'ВЕЙЛАМ';
+        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    }
+    
+    // Giant restrictions for multiple skills
+    const blockedForGiants = [
+        'Артефакторика', 
+        'Магия пространства', 
+        'Мортимагия', 
+        'Самостоятельная левитация', 
+        'Легилименция', 
+        'Окклюменция', 
+        'Метаморфомагия', 
+        'Провидение',
+        'Некромантия'
+    ];
+    
+    // Vampire & Dhampir restrictions
+    const blockedForVampires = [
+        'Магия пространства', 
+        'Телесный патронус', 
+        'Трансгрессия', 
+        'Метаморфомагия', 
+        'Провидение'
+    ];
+    if (blockedForVampires.includes(skillName)) {
+        if (race.includes('вампир')) return 'ВАМПИРАМ';
+        if (race.includes('дампир')) return 'ДАМПИРАМ';
+    }
+    
+    return null;
+  };
+
   // Filter categories for Moderator view
   const visibleCategories = React.useMemo(() => {
     if (user?.role === 'moderator' && showAdminInterface) {
@@ -342,20 +391,33 @@ export const Dashboard: React.FC = () => {
               {expandedCategories[category.name] && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-8 animate-fadeIn">
                   {category.skills.map((skillName) => {
-                     const skill = skills.find(s => s.name === skillName);
-                     if (!skill) return null;
+                     const originalSkill = skills.find(s => s.name === skillName);
+                     if (!originalSkill) return null;
+                     
+                     const blockReason = getSkillBlockReason(skillName);
+                     const isBlocked = !!blockReason;
+                     
+                     // Force 0% progress if blocked
+                     const skill = isBlocked ? { ...originalSkill, progress: 0 } : originalSkill;
                      
                      return (
                         <div 
                           key={`${category.name}-${skill.id}`} 
-                          className="p-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-cover md:bg-contain"
+                          className={`p-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-cover md:bg-contain ${isBlocked ? 'opacity-60 grayscale-[0.3]' : ''}`}
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
+                          {isBlocked && (
+                            <div className="absolute inset-0 bg-black/20 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none px-4">
+                                <span className="text-white font-bold text-center text-sm md:text-base leading-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]" style={{ fontFamily: 'RobotoforLearning-Medium_0' }}>
+                                    ЭТОТ НАВЫК НЕДОСТУПЕН {blockReason}
+                                </span>
+                            </div>
+                          )}
                           <div className="flex flex-col justify-between items-center mb-2 gap-1 md:gap-0">
                             <div className="flex items-center justify-center w-full relative px-2 gap-1">
                                 <h3 
-                                onClick={() => handleSkillClick(skill.name)}
-                                className={`font-seminaria font-bold text-hogwarts-blue cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4 whitespace-nowrap ${getSkillTitleClass(skill.name)}`}
+                                onClick={() => !isBlocked && handleSkillClick(skill.name)}
+                                className={`font-seminaria font-bold text-hogwarts-blue whitespace-nowrap ${getSkillTitleClass(skill.name)} ${isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4'}`}
                                 >
                                 {skill.name === 'Самостоятельная левитация' ? 'Самост. левитация' : skill.name}
                                 </h3>
@@ -372,7 +434,7 @@ export const Dashboard: React.FC = () => {
                             </div>
                             {!showAdminInterface && (
                                 <div className="flex items-center gap-2 mt-2">
-                                    {EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && (
+                                    {EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -386,7 +448,7 @@ export const Dashboard: React.FC = () => {
                                             СДАТЬ ЭКЗАМЕН
                                         </button>
                                     )}
-                                    {!EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && (
+                                    {!EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
                                         <>
                                             {skill.completionStatus === 'pending' ? (
                                                  <span className="text-xs font-bold text-hogwarts-gold bg-hogwarts-ink/50 px-2 py-1 rounded">
@@ -413,8 +475,8 @@ export const Dashboard: React.FC = () => {
                           {showAdminInterface ? (
                               // Admin View: Numbers
                               <div 
-                                className="flex items-center justify-center gap-6 cursor-pointer relative"
-                                onClick={() => handleSkillClick(skill.name)}
+                                className={`flex items-center justify-center gap-6 cursor-pointer relative ${isBlocked ? 'opacity-50' : ''}`}
+                                onClick={() => !isBlocked && handleSkillClick(skill.name)}
                               >
                                   <div className="flex flex-col items-center">
                                   <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
@@ -436,23 +498,27 @@ export const Dashboard: React.FC = () => {
                                          <button
                                              onClick={(e) => {
                                                  e.stopPropagation();
-                                                 if (skill.applicationStatus === 'pending') return;
+                                                 if (skill.applicationStatus === 'pending' || isBlocked) return;
                                                  setSelectedSkill(skill.name);
                                                  setIsApplicationMode(true);
                                                  setIsExamMode(false);
                                              }}
-                                             disabled={skill.applicationStatus === 'pending'}
+                                             disabled={skill.applicationStatus === 'pending' || isBlocked}
                                             className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-md transition-all font-nexa uppercase ${
-                                               skill.applicationStatus === 'pending' 
-                                                 ? 'bg-gray-400 cursor-not-allowed' 
-                                                 : (skill.applicationStatus === 'rejected' ? 'bg-red-600 hover:bg-red-700 hover:shadow-lg' : 'bg-[#006633] hover:shadow-lg')
+                                               isBlocked
+                                                 ? 'bg-gray-500 cursor-not-allowed'
+                                                 : skill.applicationStatus === 'pending' 
+                                                     ? 'bg-gray-400 cursor-not-allowed' 
+                                                     : (skill.applicationStatus === 'rejected' ? 'bg-red-600 hover:bg-red-700 hover:shadow-lg' : 'bg-[#006633] hover:shadow-lg')
                                             }`}
                                         >
-                                             {skill.applicationStatus === 'pending' 
-                                                ? 'Заявка на рассмотрении' 
-                                                : (skill.applicationStatus === 'rejected' ? 'Заявка отклонена (Повторить)' : 'Подать заявку')}
+                                             {isBlocked 
+                                                ? 'НЕДОСТУПНО'
+                                                : skill.applicationStatus === 'pending' 
+                                                    ? 'Заявка на рассмотрении' 
+                                                    : (skill.applicationStatus === 'rejected' ? 'Заявка отклонена (Повторить)' : 'Подать заявку')}
                                          </button>
-                                         {(skill.applicationStatus === 'pending' || skill.applicationStatus === 'rejected') && (
+                                         {(skill.applicationStatus === 'pending' || skill.applicationStatus === 'rejected') && !isBlocked && (
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -468,22 +534,22 @@ export const Dashboard: React.FC = () => {
                                     <>
                                         <div className="flex items-center justify-center gap-3 w-[95%] mx-auto md:w-full">
                                             <div 
-                                                className="flex-grow h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden cursor-pointer"
-                                                onClick={() => handleSkillClick(skill.name)}
+                                                className={`flex-grow h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                                onClick={() => !isBlocked && handleSkillClick(skill.name)}
                                             >
                                                 <div
                                                     className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
                                                     style={{ width: `${skill.progress}%` }}
                                                 >
                                                     <div 
-                                                        className="h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0"
+                                                        className={`h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0 ${isBlocked ? 'grayscale' : ''}`}
                                                         style={{ width: `${skill.progress > 0 ? (100 / skill.progress * 100) : 0}%` }}
                                                     >
                                                         <div className="absolute inset-0 bg-white/10 opacity-30"></div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            {!skill.isLocked && (
+                                            {!skill.isLocked && !isBlocked && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -501,7 +567,7 @@ export const Dashboard: React.FC = () => {
                                         
                                         <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1">
                                             {/* Tooltip positioned relative to the container (center of progress bar) */}
-                                            {getSkillNextStepInfo(skill) && (
+                                            {getSkillNextStepInfo(skill) && !isBlocked && (
                                                 <div className={`
                                                     absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
                                                     bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
@@ -514,10 +580,12 @@ export const Dashboard: React.FC = () => {
                                             )}
 
                                             <div 
-                                                className="relative group cursor-pointer inline-flex flex-col items-center"
+                                                className={`relative group inline-flex flex-col items-center ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                                    if (!isBlocked) {
+                                                        setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                                    }
                                                 }}
                                             >
                                                 <span>{skill.progress}%</span>

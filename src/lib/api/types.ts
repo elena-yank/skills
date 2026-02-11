@@ -47,6 +47,7 @@ export interface RaceChangeRequest {
     id: string;
     user_id: string;
     user_name?: string;
+    user_avatar?: string;
     requested_race: string;
     reason: string;
     explanation: string;

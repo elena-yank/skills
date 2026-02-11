@@ -4,12 +4,13 @@ import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification, RaceChangeRequest } from '../lib/api/types';
 import { api } from '../lib/api';
+import { RaceRequestModal } from './RaceRequestModal';
 
 export const Notifications: React.FC = () => {
     const { user, notifications, fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } = useStore();
     const [isOpen, setIsOpen] = useState(false);
-    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
-    const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
+    const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+    const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null);
     const navigate = useNavigate();
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,45 +39,31 @@ export const Notifications: React.FC = () => {
         if (!notification.read) {
             await markNotificationAsRead(notification.id);
         }
-        if (notification.link && !notification.link.startsWith('race_request:')) {
+        
+        if (notification.link?.startsWith('race_request:')) {
+            const requestId = notification.link.split(':')[1];
+            setSelectedRequestId(requestId);
+            setSelectedNotificationId(notification.id);
+            setIsOpen(false);
+            return;
+        }
+
+        if (notification.link) {
             navigate(notification.link);
             setIsOpen(false);
         }
     };
 
-    const handleProcessRaceRequest = async (e: React.MouseEvent, notificationId: string, requestId: string, status: 'approved' | 'rejected') => {
-        e.stopPropagation();
-        if (!user) return;
-
-        if (status === 'rejected' && !rejectionReasons[requestId]) {
-            alert('Пожалуйста, укажите причину отказа');
-            return;
+    const handleRaceRequestProcessed = async () => {
+        if (selectedNotificationId) {
+            // Mark as read and delete is already handled by the modal's parent if needed, 
+            // but the user wants the notification to go away after processing.
+            // In the previous version, it was deleting the notification.
+            await deleteNotification(selectedNotificationId);
         }
-
-        setProcessingRequestId(requestId);
-        try {
-            await api.raceRequests.process(requestId, {
-                status,
-                admin_id: user.id,
-                rejection_reason: rejectionReasons[requestId]
-            });
-            
-            // Mark notification as read and then delete it since it's processed
-            await markNotificationAsRead(notificationId);
-            await deleteNotification(notificationId);
-            
-            // Clear rejection reason
-            setRejectionReasons(prev => {
-                const next = { ...prev };
-                delete next[requestId];
-                return next;
-            });
-        } catch (err) {
-            console.error('Error processing race request:', err);
-            alert('Ошибка при обработке заявки');
-        } finally {
-            setProcessingRequestId(null);
-        }
+        setSelectedRequestId(null);
+        setSelectedNotificationId(null);
+        fetchNotifications();
     };
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -161,31 +148,10 @@ export const Notifications: React.FC = () => {
                                                     {notification.message}
                                                 </p>
 
-                                                {isRaceRequest && requestId && (
-                                                    <div className="mt-3 space-y-2" onClick={e => e.stopPropagation()}>
-                                                        <input
-                                                            type="text"
-                                                            value={rejectionReasons[requestId] || ''}
-                                                            onChange={(e) => setRejectionReasons(prev => ({ ...prev, [requestId]: e.target.value }))}
-                                                            placeholder="Причина отказа..."
-                                                            className="w-full px-2 py-1 text-xs border rounded bg-white focus:ring-1 focus:ring-hogwarts-red outline-none"
-                                                        />
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={(e) => handleProcessRaceRequest(e, notification.id, requestId, 'approved')}
-                                                                disabled={!!processingRequestId}
-                                                                className="flex-1 bg-green-600 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-                                                            >
-                                                                ОДОБРИТЬ
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => handleProcessRaceRequest(e, notification.id, requestId, 'rejected')}
-                                                                disabled={!!processingRequestId}
-                                                                className="flex-1 bg-red-600 text-white text-[10px] font-bold py-1 px-2 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                                                            >
-                                                                ОТКЛОНИТЬ
-                                                            </button>
-                                                        </div>
+                                                {isRaceRequest && (
+                                                    <div className="mt-2 text-[10px] font-bold text-hogwarts-blue uppercase font-nexa flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        Нажмите для просмотра заявки
                                                     </div>
                                                 )}
 
@@ -217,6 +183,17 @@ export const Notifications: React.FC = () => {
                         )}
                     </div>
                 </div>
+            )}
+            
+            {selectedRequestId && (
+                <RaceRequestModal
+                    requestId={selectedRequestId}
+                    onClose={() => {
+                        setSelectedRequestId(null);
+                        setSelectedNotificationId(null);
+                    }}
+                    onProcessed={handleRaceRequestProcessed}
+                />
             )}
         </div>
     );

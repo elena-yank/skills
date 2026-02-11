@@ -39,6 +39,52 @@ export const PublicProfile: React.FC = () => {
   const [grantTargetSkill, setGrantTargetSkill] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
+  const getSkillBlockReason = (skillName: string) => {
+    if (!user?.race) return null;
+    const race = user.race.toLowerCase();
+    
+    // Animagi restrictions
+    if (skillName === 'Анимагия') {
+        if (race.includes('вейла')) return 'ВЕЙЛАМ';
+        if (race.includes('великан')) return 'ВЕЛИКАНАМ';
+        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    }
+
+    // Mortimagic, Metamorphomagic, Providence restrictions
+    if (['Мортимагия', 'Метаморфомагия', 'Провидение'].includes(skillName)) {
+        if (race.includes('вейла')) return 'ВЕЙЛАМ';
+        if (race.includes('оборотень')) return 'ОБОРОТНЯМ';
+    }
+    
+    // Giant restrictions for multiple skills
+    const blockedForGiants = [
+        'Артефакторика', 
+        'Магия пространства', 
+        'Мортимагия', 
+        'Самостоятельная левитация', 
+        'Легилименция', 
+        'Окклюменция', 
+        'Метаморфомагия', 
+        'Провидение',
+        'Некромантия'
+    ];
+    
+    // Vampire & Dhampir restrictions
+    const blockedForVampires = [
+        'Магия пространства', 
+        'Телесный патронус', 
+        'Трансгрессия', 
+        'Метаморфомагия', 
+        'Провидение'
+    ];
+    if (blockedForVampires.includes(skillName)) {
+        if (race.includes('вампир')) return 'ВАМПИРАМ';
+        if (race.includes('дампир')) return 'ДАМПИРАМ';
+    }
+    
+    return null;
+  };
+
   const getDeclension = (number: number, titles: [string, string, string]) => {
       const cases = [2, 0, 1, 1, 1, 2];
       return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
@@ -310,21 +356,39 @@ export const PublicProfile: React.FC = () => {
                     {expandedCategories[category.name] && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-8 animate-fadeIn">
                         {category.skills.map((skillName) => {
-                            const skill = skills.find(s => s.name === skillName);
-                            if (!skill) return null;
+                            const originalSkill = skills.find(s => s.name === skillName);
+                            if (!originalSkill) return null;
                             
-                            const canModerate = currentUser?.role === 'admin' || (currentUser?.role === 'moderator' && currentUser?.managed_skills?.includes(skill.name));
+                            const isAdminOrModerator = currentUser?.role === 'admin' || currentUser?.role === 'moderator';
+                            const canModerate = currentUser?.role === 'admin' || (currentUser?.role === 'moderator' && currentUser?.managed_skills?.includes(originalSkill.name));
+                            const blockReason = getSkillBlockReason(skillName);
+                            const isBlocked = !!blockReason;
+
+                            // In PublicProfile, we show blocking based on the target user's race
+                            // but admins/moderators can still click to moderate if they need to
+                            const shouldShowAsBlocked = isBlocked;
+                            const canClick = !isBlocked || isAdminOrModerator;
+
+                            // Force 0% progress if blocked
+                            const skill = isBlocked ? { ...originalSkill, progress: 0 } : originalSkill;
 
                             return (
                                 <div 
                                 key={`${category.name}-${skill.id}`} 
-                                onClick={() => navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
-                                className="p-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-shadow bg-no-repeat bg-center bg-cover md:bg-contain cursor-pointer"
+                                onClick={() => canClick && navigate(`/u/${username}/skill/${encodeURIComponent(skill.name)}`)}
+                                className={`p-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-cover md:bg-contain ${shouldShowAsBlocked ? 'opacity-60 grayscale-[0.3]' : ''} ${canClick ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                                 style={{ backgroundImage: `url(${scrollImg})` }}
                                 >
+                                {shouldShowAsBlocked && (
+                                    <div className="absolute inset-0 bg-black/20 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none px-4">
+                                        <span className="text-white font-bold text-center text-sm md:text-base leading-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]" style={{ fontFamily: 'RobotoforLearning-Medium_0' }}>
+                                            ЭТОТ НАВЫК НЕДОСТУПЕН {blockReason}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex flex-col justify-between items-center mb-2 gap-1 md:gap-0">
                                     <div className="flex items-center gap-1 justify-center w-full relative px-1">
-                                        <h3 className={`font-seminaria font-bold text-hogwarts-blue text-center whitespace-nowrap ${getSkillTitleClass(skill.name)}`}>
+                                        <h3 className={`font-seminaria font-bold text-hogwarts-blue text-center whitespace-nowrap ${getSkillTitleClass(skill.name)} ${shouldShowAsBlocked ? 'opacity-50' : ''}`}>
                                             {skill.name === 'Самостоятельная левитация' ? 'Самост. левитация' : skill.name}
                                         </h3>
                                         <button
@@ -340,7 +404,7 @@ export const PublicProfile: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="w-[95%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden">
+                                <div className={`w-[95%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${shouldShowAsBlocked ? 'grayscale opacity-50' : ''}`}>
                                     <div
                                         className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
                                         style={{ width: `${skill.progress}%` }}
@@ -356,7 +420,7 @@ export const PublicProfile: React.FC = () => {
                                 
                                 <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-10 w-full">
                                     {/* Tooltip positioned relative to the container (center of progress bar) */}
-                                    {getSkillNextStepInfo(skill) && (
+                                    {getSkillNextStepInfo(skill) && !shouldShowAsBlocked && (
                                         <div className={`
                                             absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
                                             bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
@@ -369,10 +433,12 @@ export const PublicProfile: React.FC = () => {
                                     )}
 
                                     <div 
-                                        className="relative group cursor-pointer inline-flex flex-col items-center"
+                                        className={`relative group inline-flex flex-col items-center ${shouldShowAsBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                            if (!shouldShowAsBlocked) {
+                                                setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                            }
                                         }}
                                     >
                                         <span>{skill.progress}%</span>

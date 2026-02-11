@@ -805,7 +805,7 @@ app.post('/api/race-requests', async (req, res) => {
 app.get('/api/race-requests', async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT r.*, w.name as user_name 
+            SELECT r.*, w.name as user_name, w.avatar_url as user_avatar
             FROM race_change_requests r 
             JOIN wizards w ON r.user_id = w.id 
             WHERE r.status = 'pending'
