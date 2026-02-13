@@ -177,7 +177,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     set({ isLoading: true });
     try {
-      if ((user.role === 'admin' || user.role === 'moderator') && !viewAsUser) {
+      // For admins/moderators, we ALWAYS use the full logic because it includes personal stats
+      // except if explicitly viewing as user AND we want to save bandwidth (not needed here)
+      if (user.role === 'admin' || user.role === 'moderator') {
          // Admin/Moderator logic: Combine Global Stats (for Dashboard) + Personal Stats (for Progress)
          const data = await api.logs.listAll(); 
          

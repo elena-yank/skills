@@ -209,17 +209,6 @@ export const WizardList: React.FC = () => {
                         </h3>
                         <div className="flex flex-wrap items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
-                                hasSpecialStyle
-                                    ? isHufflepuff || isVillage
-                                      ? 'bg-black/5 text-hogwarts-ink border border-black/10'
-                                      : 'bg-white/10 text-white border border-white/20'
-                                    : wizard.role === 'admin' 
-                                        ? 'bg-hogwarts-red/10 text-hogwarts-red border border-hogwarts-red/20' 
-                                        : 'bg-hogwarts-green/10 text-hogwarts-green border border-hogwarts-green/20'
-                            }`}>
-                                {wizard.role === 'admin' ? 'Администратор' : 'Участник'}
-                            </span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                               hasSpecialStyle 
                                 ? isHufflepuff || isVillage
                                   ? 'bg-black/5 text-hogwarts-ink border border-black/10'
@@ -228,7 +217,7 @@ export const WizardList: React.FC = () => {
                             }`}>
                                 {wizard.race || 'Человек'}
                             </span>
-                            {wizard.age && (
+                             {wizard.age && (
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                                   hasSpecialStyle 
                                     ? isHufflepuff || isVillage

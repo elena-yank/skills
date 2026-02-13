@@ -632,9 +632,6 @@ export const SkillDetail: React.FC = () => {
 
     try {
         await deletePracticeLog(id);
-        // Refresh skills in store to update progress/blocking status everywhere
-        // Use true to view as regular user stats for accurate progress calculation
-        await fetchSkills(true);
     } catch (e) {
         console.error("Failed to delete log", e);
         alert("Не удалось уничтожить свиток. Магия дала сбой.");
@@ -665,9 +662,6 @@ export const SkillDetail: React.FC = () => {
 
     try {
         await updateLogStatus(id, status, rejectionReason);
-        // Refresh skills in store to update progress/blocking status everywhere
-        // Use true to view as regular user stats for accurate progress calculation
-        await fetchSkills(true);
     } catch (e: any) {
         console.error("Failed to update status", e);
         alert(e.message || "Не удалось обновить статус свитка.");
@@ -843,7 +837,7 @@ export const SkillDetail: React.FC = () => {
             {isAdmin && (
                 <button
                     onClick={() => setViewMode(viewMode === 'pending' ? 'approved' : 'pending')}
-                    className="px-6 py-2 bg-hogwarts-blue text-white rounded-lg hover:bg-blue-900 transition-colors font-normal shadow-lg border-2 border-hogwarts-gold font-century mt-4 md:mt-0 w-full md:w-auto"
+                    className={`px-6 py-2 ${viewMode === 'pending' ? 'bg-[#004d26] hover:bg-[#003d1e]' : 'bg-hogwarts-blue hover:bg-blue-900'} text-white rounded-lg transition-colors font-normal shadow-lg border-2 border-hogwarts-gold font-century mt-4 md:mt-0 w-full md:w-auto`}
                 >
                     {viewMode === 'pending' ? 'Уже одобренные' : 'На проверку'}
                 </button>
