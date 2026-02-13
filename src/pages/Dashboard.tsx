@@ -414,7 +414,7 @@ export const Dashboard: React.FC = () => {
               </button>
 
               {expandedCategories[category.name] && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-8 animate-fadeIn">
+                <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-2 gap-3 md:gap-8 animate-fadeIn">
                   {category.skills.map((skillName) => {
                      const originalSkill = skills.find(s => s.name === skillName);
                      if (!originalSkill) return null;
@@ -428,7 +428,7 @@ export const Dashboard: React.FC = () => {
                      return (
                         <div 
                           key={`${category.name}-${skill.id}`} 
-                          className={`p-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-cover md:bg-contain ${isBlocked ? 'opacity-60 grayscale-[0.3]' : ''}`}
+                          className={`px-8 py-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-[length:100%_100%] md:bg-contain ${isBlocked ? 'opacity-60 grayscale-[0.3]' : ''}`}
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           {isBlocked && (
@@ -467,7 +467,7 @@ export const Dashboard: React.FC = () => {
                                                 setIsExamMode(true);
                                                 setIsApplicationMode(false);
                                             }}
-                                            className="px-3 py-1 rounded-full text-white font-bold text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                            className="px-3 py-1 rounded-full text-white font-bold text-[10px] md:text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
                                             style={{ backgroundColor: '#006633', fontFamily: 'RobotoforLearning-Medium_0' }}
                                         >
                                             СДАТЬ ЭКЗАМЕН
@@ -476,7 +476,7 @@ export const Dashboard: React.FC = () => {
                                     {!EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
                                         <>
                                             {skill.completionStatus === 'pending' ? (
-                                                 <span className="text-xs font-bold text-hogwarts-gold bg-hogwarts-ink/50 px-2 py-1 rounded">
+                                                 <span className="text-[10px] md:text-xs font-bold text-hogwarts-gold bg-hogwarts-ink/50 px-2 py-1 rounded">
                                                      Заявка на рассмотрении
                                                  </span>
                                             ) : (
@@ -485,7 +485,7 @@ export const Dashboard: React.FC = () => {
                                                         e.stopPropagation();
                                                         handleCompletionRequest(skill.name);
                                                     }}
-                                                    className="px-3 py-1 rounded-full text-white text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                                    className="px-3 py-1 rounded-full text-white text-[10px] md:text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
                                                     style={{ backgroundColor: '#006633', fontFamily: 'RobotoforLearning-Medium_0' }}
                                                 >
                                                     ПОДАТЬ ЗАЯВКУ НА ЗАВЕРШЕНИЕ
@@ -500,19 +500,19 @@ export const Dashboard: React.FC = () => {
                           {showAdminInterface ? (
                               // Admin View: Numbers
                               <div 
-                                className={`flex items-center justify-center gap-6 cursor-pointer relative ${isBlocked ? 'opacity-50' : ''}`}
+                                className={`flex items-center justify-center gap-4 cursor-pointer relative ${isBlocked ? 'opacity-50' : ''}`}
                                 onClick={() => !isBlocked && handleSkillClick(skill.name)}
                               >
                                   <div className="flex flex-col items-center">
-                                  <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
-                                  <span className="text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
+                                  <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
+                                  <span className="text-2xl md:text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
                               </div>
                               <div className="flex flex-col items-center">
-                                  <span className="text-xs uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">На проверке</span>
-                                  <span className="text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
+                                  <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">На проверке</span>
+                                  <span className="text-2xl md:text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
                               </div>
                                   <div className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <FileText className="w-6 h-6 text-hogwarts-blue" />
+                                      <FileText className="w-5 h-5 md:w-6 md:h-6 text-hogwarts-blue" />
                                   </div>
                               </div>
                           ) : (
@@ -529,7 +529,7 @@ export const Dashboard: React.FC = () => {
                                                  setIsExamMode(false);
                                              }}
                                              disabled={skill.applicationStatus === 'pending' || isBlocked}
-                                            className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-md transition-all font-nexa uppercase ${
+                                            className={`px-4 py-1.5 rounded-full text-white font-bold text-[10px] md:text-sm shadow-md transition-all font-nexa uppercase ${
                                                isBlocked
                                                  ? 'bg-gray-500 cursor-not-allowed'
                                                  : skill.applicationStatus === 'pending' 
@@ -557,9 +557,9 @@ export const Dashboard: React.FC = () => {
                                      </div>
                                 ) : (
                                     <>
-                                        <div className="flex items-center justify-center gap-3 w-[95%] mx-auto md:w-full">
+                                        <div className="flex items-center justify-center gap-2 w-[78%] mx-auto md:w-full">
                                             <div 
-                                                className={`flex-grow h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                                className={`flex-grow h-3 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                                 onClick={() => !isBlocked && handleSkillClick(skill.name)}
                                             >
                                                 <div
@@ -582,10 +582,10 @@ export const Dashboard: React.FC = () => {
                                                         setIsExamMode(false);
                                                         setIsApplicationMode(false);
                                                     }}
-                                                    className="shrink-0 p-1.5 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
+                                                    className="shrink-0 p-1 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
                                                     title="Практиковать этот навык"
                                                 >
-                                                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                                                    <Plus className="w-3 h-3 md:w-5 md:h-5" />
                                                 </button>
                                             )}
                                         </div>

@@ -19,7 +19,13 @@
     <script>
       function initBridge() {
         vkBridge.send('VKWebAppInit')
-          .then(data => console.log('VK Bridge Initialized', data))
+          .then(data => {
+            console.log('VK Bridge Initialized', data);
+            // Разрешаем поворот экрана
+            vkBridge.send('VKWebAppSetOrientation', { 
+              orientation: 'both' 
+            }).catch(err => console.error('Error setting orientation:', err));
+          })
           .catch(error => console.error('VK Bridge Init Error', error));
       }
     </script>

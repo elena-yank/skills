@@ -70,4 +70,12 @@
   .animate-glass-shimmer {
     animation: glass-shimmer 4s infinite;
   }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

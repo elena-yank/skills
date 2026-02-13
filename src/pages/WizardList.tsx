@@ -121,7 +121,7 @@ export const WizardList: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-2 gap-4">
             {filteredWizards.map((wizard) => {
               const isGryffindor = wizard.faculty === 'Гриффиндор';
               const isRavenclaw = wizard.faculty === 'Когтевран';

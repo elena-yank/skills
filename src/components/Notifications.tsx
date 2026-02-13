@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, Check, Info, XCircle, CheckCircle, Trash2, CheckSquare, Clock } from 'lucide-react';
+import { Bell, Check, Info, XCircle, CheckCircle, Trash2, CheckSquare, Clock, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification, RaceChangeRequest } from '../lib/api/types';
@@ -93,32 +93,48 @@ export const Notifications: React.FC = () => {
             >
                 <Bell className="w-6 h-6" />
                 {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 w-5 h-5 bg-hogwarts-red text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-hogwarts-ink">
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-hogwarts-gold text-hogwarts-ink text-xs font-bold rounded-full flex items-center justify-center border-2 border-hogwarts-ink">
                         {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                 )}
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-lg shadow-xl border-2 border-hogwarts-gold overflow-hidden z-50">
-                    <div className="p-3 bg-hogwarts-blue text-white font-serif font-bold border-b border-hogwarts-gold flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <span>Уведомления</span>
-                            {unreadCount > 0 && (
-                                <span className="text-xs font-normal opacity-80 bg-white/20 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-                            )}
+                <>
+                    {/* Overlay for mobile */}
+                    <div 
+                        className="fixed inset-0 bg-black/60 z-40 sm:hidden"
+                        onClick={() => setIsOpen(false)}
+                    />
+                    
+                    <div className="fixed inset-x-4 top-24 max-w-lg mx-auto sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 md:w-96 bg-white rounded-lg shadow-xl border-2 border-hogwarts-gold overflow-hidden z-50">
+                        <div className="p-3 bg-hogwarts-blue text-white font-serif font-bold border-b border-hogwarts-gold flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <span>Уведомления</span>
+                                {unreadCount > 0 && (
+                                    <span className="text-xs font-normal opacity-80 bg-white/20 px-1.5 py-0.5 rounded-full">{unreadCount}</span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {unreadCount > 0 && (
+                                    <button 
+                                        onClick={handleMarkAllRead}
+                                        className="text-xs font-normal opacity-80 hover:opacity-100 flex items-center gap-1 hover:text-hogwarts-gold transition-colors"
+                                        title="Отметить все как прочитанные"
+                                    >
+                                        <CheckSquare className="w-3 h-3" />
+                                        <span className="hidden xs:inline">Отметить все прочитанными</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                                    title="Закрыть"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
-                        {unreadCount > 0 && (
-                            <button 
-                                onClick={handleMarkAllRead}
-                                className="text-xs font-normal opacity-80 hover:opacity-100 flex items-center gap-1 hover:text-hogwarts-gold transition-colors"
-                                title="Отметить все как прочитанные"
-                            >
-                                <CheckSquare className="w-3 h-3" />
-                                Отметить все прочитанными
-                            </button>
-                        )}
-                    </div>
                     
                     <div className="max-h-96 overflow-y-auto">
                         {notifications.length === 0 ? (
@@ -183,7 +199,8 @@ export const Notifications: React.FC = () => {
                         )}
                     </div>
                 </div>
-            )}
+            </>
+        )}
             
             {selectedRequestId && (
                 <RaceRequestModal

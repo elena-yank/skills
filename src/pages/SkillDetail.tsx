@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
+import owlSvg from '../assets/owl.svg';
 import { PracticeLog } from '../lib/api/types';
 import { ImageModal } from '../components/ImageModal';
 import transgressionSvg from '../assets/transgression.svg';
@@ -38,10 +39,87 @@ const LogItem: React.FC<{
   const [rejectionReason, setRejectionReason] = useState('');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const { user } = useStore();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const scrollTrackRef = useRef<HTMLDivElement>(null);
   
   const isGlobalAdmin = user?.role === 'admin';
   const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(log.skill_name);
   const canModerate = isGlobalAdmin || isModerator;
+
+  // Update owl position on scroll
+  const handleContentScroll = () => {
+    if (contentRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+      const progress = scrollTop / (scrollHeight - clientHeight);
+      setScrollProgress(isNaN(progress) ? 0 : progress);
+    }
+  };
+
+  // Drag logic
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging || !scrollTrackRef.current || !contentRef.current) return;
+      
+      // Блокируем скролл страницы
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      
+      const track = scrollTrackRef.current.getBoundingClientRect();
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const relativeY = clientY - track.top;
+      const percentage = Math.max(0, Math.min(1, relativeY / track.height));
+      
+      const content = contentRef.current;
+      content.scrollTop = percentage * (content.scrollHeight - content.clientHeight);
+    };
+
+    const handleEnd = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMove, { passive: false });
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+      
+      // Блокируем скролл на body через CSS
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+      
+      // Возвращаем скролл
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isDragging]);
+
+  const handleScroll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (contentRef.current) {
+        const container = contentRef.current;
+        const scrollAmount = 200; 
+        const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 10;
+        
+        if (isAtBottom) {
+            container.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+        }
+    }
+  };
 
   // Logic for "Complete Study" button
   const threshold = SKILL_THRESHOLDS[log.skill_name] || 100;
@@ -258,26 +336,64 @@ const LogItem: React.FC<{
         </div>
       </div>
       
-      <div className="prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif relative z-10">
-        {isExpanded || isGranted ? (
-          paragraphs.map((paragraph, idx) => (
-            <p key={idx} className="mb-4">{paragraph}</p>
-          ))
-        ) : (
-          <div>
-            <p className="mb-4 line-clamp-3">{firstParagraph}</p>
-            {!isExpanded && paragraphs.length > 0 && (
-              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/90 to-transparent pointer-events-none rounded-b-lg" />
-            )}
+      <div className="relative z-10 flex gap-2">
+        <div 
+          ref={contentRef}
+          onScroll={handleContentScroll}
+          className={`prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif scroll-smooth flex-grow ${isExpanded ? 'max-h-[50vh] overflow-y-auto md:max-h-none md:overflow-visible hide-scrollbar' : ''}`}
+        >
+          {isExpanded || isGranted ? (
+            paragraphs.map((paragraph, idx) => (
+              <p key={idx} className="mb-4">{paragraph}</p>
+            ))
+          ) : (
+            <div>
+              <p className="mb-4 line-clamp-3">{firstParagraph}</p>
+              {!isExpanded && paragraphs.length > 0 && (
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/90 to-transparent pointer-events-none rounded-b-lg" />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Custom Owl Scrollbar for Mobile */}
+        {isExpanded && !isGranted && (
+          <div 
+            ref={scrollTrackRef}
+            className="md:hidden w-1.5 bg-hogwarts-bronze/20 rounded-full relative my-4 mx-2 overflow-visible"
+            style={{ height: 'calc(50vh - 32px)' }}
+          >
+            {/* The "Yellow Line" (Filled Track) - Moves with owl */}
+            <div 
+              className="absolute top-0 w-full bg-hogwarts-gold rounded-full transition-all duration-100 ease-out"
+              style={{ 
+                height: `${scrollProgress * 100}%`, 
+                boxShadow: '0 0 8px rgba(225, 177, 47, 0.4)'
+              }}
+            />
+            {/* The Owl Icon - Draggable Handle, attached to the end of the line */}
+            <div
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleMouseDown}
+              className={`absolute left-1/2 -translate-x-1/2 z-50 cursor-grab active:cursor-grabbing transition-transform ${isDragging ? 'scale-110' : 'hover:scale-105'}`}
+              style={{ 
+                top: `${scrollProgress * 100}%`, 
+                marginTop: '0px'
+              }}
+            >
+              <div className="bg-white rounded-full border-2 border-hogwarts-gold shadow-lg p-1 w-[42px] h-[42px] flex items-center justify-center -translate-y-1/2">
+                <img src={owlSvg} alt="Owl Scroll" className="w-8 h-8 object-contain pointer-events-none" />
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex justify-between items-center relative z-10">
+      <div className="mt-4 flex flex-col sm:flex-row justify-between items-center relative z-10 gap-4">
         {!isGranted && (
             <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-hogwarts-blue hover:text-hogwarts-red font-bold font-serif transition-colors px-4 py-2 rounded-full hover:bg-hogwarts-blue/5"
+            className="flex items-center gap-2 text-hogwarts-blue hover:text-hogwarts-red font-bold font-serif transition-colors px-4 py-2 rounded-full hover:bg-hogwarts-blue/5 self-start sm:self-auto"
             >
             {isExpanded ? (
                 <>
@@ -295,23 +411,23 @@ const LogItem: React.FC<{
         {isGranted && <div />} {/* Spacer */}
 
         {canModerate && log.status === 'pending' && (
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
                 {/* Если админ и есть назначенные модераторы, но нет одобрения */}
                 {isGlobalAdmin && log.assigned_moderators && !log.moderator_approval_id ? (
-                     <div className="text-hogwarts-ink/60 font-bold font-serif text-right">
+                     <div className="text-hogwarts-ink/60 font-bold font-serif text-center sm:text-right">
                         Ожидается одобрение экзаменатора: {log.assigned_moderators}
                      </div>
                 ) : (
                     <>
                         {log.moderator_name && (
-                            <div className="text-hogwarts-gold text-sm font-bold">
+                            <div className="text-hogwarts-gold text-sm font-bold text-center sm:text-right">
                                 Одобрено экзаменатором: {log.moderator_name}
                             </div>
                         )}
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
                             <button
                                 onClick={() => setShowRejectModal(true)}
-                                className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-bold font-serif"
+                                className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors font-bold font-serif whitespace-nowrap"
                             >
                                 <X className="w-4 h-4" />
                                 Отклонить
@@ -323,7 +439,7 @@ const LogItem: React.FC<{
                                     {(!log.moderator_proposed_status || log.moderator_proposed_status === 'approved') && (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'approved')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
                                         >
                                             <Check className="w-4 h-4" />
                                             Принять
@@ -332,7 +448,7 @@ const LogItem: React.FC<{
                                     {log.moderator_proposed_status === 'exam_passed' && (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'exam_passed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
                                         >
                                             <GraduationCap className="w-4 h-4" />
                                             Экзамен сдан
@@ -341,7 +457,7 @@ const LogItem: React.FC<{
                                      {log.moderator_proposed_status === 'study_completed' && (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'study_completed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze whitespace-nowrap"
                                         >
                                             <BookOpen className="w-4 h-4" />
                                             Завершить изучение
@@ -354,14 +470,14 @@ const LogItem: React.FC<{
                                     {!(isModerator && log.moderator_approval_id === user?.id) ? (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'approved')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-green text-hogwarts-gold shadow-md hover:bg-green-900 transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
                                             title={isModerator ? "Одобрить как экзаменатор" : "Принять: Добавить в историю"}
                                         >
                                             <Check className="w-4 h-4" />
                                             {isModerator ? 'Одобрить' : 'Принять'}
                                         </button>
                                     ) : (
-                                        <span className="text-hogwarts-green font-bold text-sm flex items-center gap-1 self-center px-4 py-2 border border-transparent">
+                                        <span className="text-hogwarts-green font-bold text-sm flex items-center gap-1 self-center px-4 py-2 border border-transparent whitespace-nowrap">
                                             <Check className="w-4 h-4" /> Вы одобрили
                                         </span>
                                     )}
@@ -369,7 +485,7 @@ const LogItem: React.FC<{
                                     {log.type === 'exam' && (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'exam_passed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
                                             title="Экзамен сдан: Прогресс станет 100%"
                                         >
                                             <GraduationCap className="w-4 h-4" />
@@ -380,7 +496,7 @@ const LogItem: React.FC<{
                                     {showCompleteStudy && (
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'study_completed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze"
+                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze whitespace-nowrap"
                                             title="Завершить изучение: Прогресс станет 100%"
                                         >
                                             <BookOpen className="w-4 h-4" />
