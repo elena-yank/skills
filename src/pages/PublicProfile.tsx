@@ -328,13 +328,13 @@ export const PublicProfile: React.FC = () => {
                 <img
                   src={frameSvg}
                   alt="Frame"
-                  className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
+                  className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
                 />
-                <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
+                <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden [@media(orientation:landscape)]:hidden rounded-lg"></div>
 
-                <div className="relative z-10 flex flex-col md:flex-row gap-4 items-center px-4 py-6 md:px-12 md:py-8">
+                <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row gap-4 items-center px-4 py-6 md:px-12 md:py-8 [@media(orientation:landscape)]:px-8 [@media(orientation:landscape)]:py-8">
                     <div className="relative">
-                        <div className="w-16 h-16 md:w-24 md:h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative">
+                        <div className="w-16 h-16 md:w-24 md:h-24 [@media(orientation:landscape)]:w-24 [@media(orientation:landscape)]:h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative">
                             {user?.avatar_url ? (
                                 <img 
                                     src={user.avatar_url} 
@@ -364,11 +364,11 @@ export const PublicProfile: React.FC = () => {
                         altText={user?.name || 'Avatar'}
                     />
 
-                    <div className="text-center md:text-left">
-                        <h2 className="text-xl md:text-4xl font-seminaria font-bold text-hogwarts-gold mb-1">
+                    <div className="text-center md:text-left [@media(orientation:landscape)]:text-left">
+                        <h2 className="text-xl md:text-4xl [@media(orientation:landscape)]:text-4xl font-seminaria font-bold text-hogwarts-gold mb-1">
                           {username?.replace(/_/g, ' ')}
                         </h2>
-                        <p className="text-base md:text-xl text-white font-century">
+                        <p className="text-base md:text-xl [@media(orientation:landscape)]:text-xl text-white font-century">
                             Карточка навыков
                         </p>
                     </div>
@@ -391,7 +391,7 @@ export const PublicProfile: React.FC = () => {
                     </button>
 
                     {expandedCategories[category.name] && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-8 animate-fadeIn">
+                        <div className="grid grid-cols-1 md:grid-cols-2 [@media(orientation:landscape)]:grid-cols-2 gap-3 md:gap-8 [@media(orientation:landscape)]:gap-4 animate-fadeIn">
                         {category.skills.map((skillName) => {
                             const originalSkill = skills.find(s => s.name === skillName);
                             if (!originalSkill) return null;
@@ -491,7 +491,7 @@ export const PublicProfile: React.FC = () => {
                                                 setGrantTargetSkill(skill.name);
                                                 setGrantModalOpen(true);
                                             }}
-                                            className="absolute right-0 top-1/2 -translate-y-1/2 bg-hogwarts-green text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-md hover:bg-hogwarts-green/90 transition-colors z-20"
+                                            className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2 bg-hogwarts-green text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-md hover:bg-hogwarts-green/90 transition-colors z-20"
                                             title="Повысить уровень до 100%"
                                         >
                                             +100%
