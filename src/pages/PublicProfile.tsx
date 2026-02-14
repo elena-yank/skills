@@ -441,7 +441,7 @@ export const PublicProfile: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className={`w-[95%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${shouldShowAsBlocked ? 'grayscale opacity-50' : ''}`}>
+                                <div className={`w-[78%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${shouldShowAsBlocked ? 'grayscale opacity-50' : ''}`}>
                                     <div
                                         className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
                                         style={{ width: `${skill.progress}%` }}

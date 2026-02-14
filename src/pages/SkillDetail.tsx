@@ -63,22 +63,28 @@ const LogItem: React.FC<{
     e.preventDefault();
   };
 
+  const rafIdRef = useRef<number | null>(null);
+  const latestClientYRef = useRef<number | null>(null);
+
   useEffect(() => {
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging || !scrollTrackRef.current || !contentRef.current) return;
-      
-      // Блокируем скролл страницы
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      
+    const applyScrollByOwl = () => {
+      if (!scrollTrackRef.current || !contentRef.current || latestClientYRef.current == null) return;
       const track = scrollTrackRef.current.getBoundingClientRect();
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const clientY = latestClientYRef.current;
       const relativeY = clientY - track.top;
       const percentage = Math.max(0, Math.min(1, relativeY / track.height));
-      
       const content = contentRef.current;
       content.scrollTop = percentage * (content.scrollHeight - content.clientHeight);
+      rafIdRef.current = null;
+    };
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging) return;
+      if (e.cancelable) e.preventDefault();
+      latestClientYRef.current = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      if (rafIdRef.current == null) {
+        rafIdRef.current = requestAnimationFrame(applyScrollByOwl);
+      }
     };
 
     const handleEnd = () => setIsDragging(false);
@@ -99,6 +105,10 @@ const LogItem: React.FC<{
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchmove', handleMove);
       window.removeEventListener('touchend', handleEnd);
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       
       // Возвращаем скролл
       document.body.style.overflow = '';
@@ -126,6 +136,8 @@ const LogItem: React.FC<{
   const approvedCount = log.user_approved_count || 0;
   const isExamRequired = EXAM_REQUIRED_SKILLS.includes(log.skill_name);
   const isAlreadyCompleted = log.has_completed_status;
+  const isExamLog = (log.type === 'exam') || (log.status === 'exam_passed') || (log.moderator_proposed_status === 'exam_passed');
+  const isExamSkillPage = EXAM_REQUIRED_SKILLS.includes(log.skill_name);
   
   // Show button if user reached threshold (90%), exam is not required, and not already completed
   const showCompleteStudy = canModerate && !isExamRequired && approvedCount >= threshold && !isAlreadyCompleted;
@@ -169,18 +181,7 @@ const LogItem: React.FC<{
              </div>
           </div>
       )}
-      {!canModerate && log.status === 'rejected' && (
-          <div className="absolute inset-0 bg-red-100/80 z-30 flex flex-col items-center justify-center backdrop-blur-[1px] pointer-events-none p-4">
-             <div className="bg-hogwarts-red text-white px-6 py-3 rounded-lg shadow-xl font-magical text-xl border-2 border-hogwarts-gold pointer-events-auto z-40 opacity-100 text-center mb-2">
-                Ваш текст был отклонён, обратитесь к администрации
-             </div>
-             {log.rejection_reason && (
-                <div className="bg-white/90 text-hogwarts-red px-6 py-3 rounded-lg shadow-md font-serif text-lg border border-hogwarts-red pointer-events-auto z-40 max-w-md text-center">
-                    <span className="font-bold">Причина:</span> {log.rejection_reason}
-                </div>
-             )}
-          </div>
-      )}
+      
 
       {showConfirm && (
         <div className="absolute inset-0 bg-white/95 z-50 flex flex-col items-center justify-center rounded-lg p-8 animate-in fade-in duration-200">
@@ -239,7 +240,29 @@ const LogItem: React.FC<{
 
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-40 gap-4 md:gap-0">
         <div className="flex flex-col gap-1 w-full md:w-auto">
-            <div className="flex flex-wrap items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
+            <div className="md:hidden flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
+                {(isExamLog || isExamSkillPage) && (
+                    <span className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
+                        Экзамен
+                    </span>
+                )}
+                {!isGranted && (
+                    <span className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-xs font-bold border border-hogwarts-green/30 font-serif">
+                        {log.word_count} слов
+                    </span>
+                )}
+                {(isOwner || canModerate) && (
+                    <button 
+                        onClick={handleDelete}
+                        className="ml-auto text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1"
+                        title="Уничтожить свиток"
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
+                )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-hogwarts-ink/70 font-bold font-serif mt-1 md:mt-0">
             {isGranted && log.moderator_name ? (
                 <div className="text-hogwarts-green font-bold flex items-center gap-2 text-lg">
                     <span>Выдал:</span>
@@ -254,8 +277,8 @@ const LogItem: React.FC<{
                 </div>
             ) : (
                 <>
-                    {log.type === 'exam' && (
-                        <span className="bg-hogwarts-purple text-white px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">
+                    {(isExamLog || isExamSkillPage) && (
+                        <span className="hidden md:inline-flex px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
                             Экзамен
                         </span>
                     )}
@@ -270,12 +293,12 @@ const LogItem: React.FC<{
                 </>
             )}
             
-            {log.post_link && (
+            {log.post_link && log.status !== 'rejected' && (
                 <a 
                 href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="ml-0 md:ml-4 flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors w-full md:w-auto mt-2 md:mt-0"
+                className="flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors w-full md:w-auto"
                 title="Открыть ссылку"
                 >
                 <Feather className="w-4 h-4" />
@@ -308,15 +331,10 @@ const LogItem: React.FC<{
             )}
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full md:w-auto">
+        <div className="hidden md:flex flex-wrap items-center gap-2 md:gap-4">
             {log.type === 'application' && (
                 <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
                     Заявка на освоение
-                </div>
-            )}
-            {log.type === 'exam' && (
-                <div className="bg-hogwarts-purple/10 text-hogwarts-purple px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-purple/30 font-serif">
-                    Экзамен
                 </div>
             )}
             {!isGranted && (
@@ -327,7 +345,7 @@ const LogItem: React.FC<{
             {(isOwner || canModerate) && (
                 <button 
                     onClick={handleDelete}
-                    className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1 relative z-50 ml-auto md:ml-0"
+                    className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1"
                     title="Уничтожить свиток"
                 >
                     <Trash2 className="w-5 h-5" />
@@ -336,11 +354,24 @@ const LogItem: React.FC<{
         </div>
       </div>
       
+      {!canModerate && log.status === 'rejected' && (
+        <div className="relative z-10 mb-3">
+            <div className="bg-hogwarts-red text-white px-4 py-3 rounded-lg shadow font-magical text-base md:text-lg border-2 border-hogwarts-gold text-center max-w-full mx-auto">
+                Ваш текст был отклонён, обратитесь к администрации
+            </div>
+            {log.rejection_reason && (
+                <div className="mt-2 bg-white text-hogwarts-red px-4 py-3 rounded-lg shadow font-serif text-base border border-hogwarts-red text-center max-w-full mx-auto">
+                    <span className="font-bold">Причина:</span> {log.rejection_reason}
+                </div>
+            )}
+        </div>
+      )}
+      
       <div className="relative z-10 flex gap-2">
         <div 
           ref={contentRef}
           onScroll={handleContentScroll}
-          className={`prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif scroll-smooth flex-grow ${isExpanded ? 'max-h-[50vh] overflow-y-auto md:max-h-none md:overflow-visible hide-scrollbar' : ''}`}
+          className={`prose prose-stone max-w-none font-body text-lg leading-relaxed text-hogwarts-ink font-serif ${isDragging ? '' : 'scroll-smooth'} flex-grow ${isExpanded ? 'max-h-[50vh] overflow-y-auto md:max-h-none md:overflow-visible hide-scrollbar' : ''}`}
         >
           {isExpanded || isGranted ? (
             paragraphs.map((paragraph, idx) => (

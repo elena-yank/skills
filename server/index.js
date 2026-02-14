@@ -377,7 +377,7 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// Logs: Get All Logs (Admin)
+// Logs: List All (Admin)
 app.get('/api/admin/logs', async (req, res) => {
     const { skill_name, status } = req.query;
     try {
@@ -443,6 +443,40 @@ app.get('/api/admin/logs', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// Logs: Fast pending counts for Admin/Moderator
+app.get('/api/admin/logs/pending-counts', async (req, res) => {
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+  try {
+    const userRes = await pool.query('SELECT role, managed_skills FROM wizards WHERE id = $1', [user_id]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const user = userRes.rows[0];
+    const isAdmin = user.role === 'admin';
+    const isModerator = user.role === 'moderator';
+    if (!isAdmin && !isModerator) return res.status(403).json({ error: 'Not authorized' });
+
+    let query = `SELECT skill_name, COUNT(*)::int AS pending_count
+                 FROM practice_logs
+                 WHERE status = 'pending'`;
+    const params = [];
+    if (isModerator) {
+      // Restrict to managed skills for moderators
+      query += ` AND skill_name = ANY($1)`;
+      params.push(user.managed_skills || []);
+    }
+    query += ` GROUP BY skill_name`;
+    const result = await pool.query(query, params);
+    const map = {};
+    for (const row of result.rows) {
+      map[row.skill_name] = row.pending_count;
+    }
+    res.json(map);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Logs: Create Log

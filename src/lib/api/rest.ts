@@ -125,10 +125,15 @@ export const restApi: ApiClient = {
     }
   },
   logs: {
+    pendingCounts: async (userId) => {
+      const res = await fetch(`${API_URL}/admin/logs/pending-counts?user_id=${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as Record<string, number>;
+    },
     list: async (userId, skillName) => {
       const params = new URLSearchParams({ user_id: userId });
       if (skillName) params.append('skill_name', skillName);
-      
       const res = await fetch(`${API_URL}/logs?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

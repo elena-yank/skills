@@ -180,6 +180,29 @@ export const useStore = create<AppState>((set, get) => ({
       // For admins/moderators, we ALWAYS use the full logic because it includes personal stats
       // except if explicitly viewing as user AND we want to save bandwidth (not needed here)
       if (user.role === 'admin' || user.role === 'moderator') {
+         // Prefetch pending counts for instant accurate badges
+         try {
+           const pendingCounts = await api.logs.pendingCounts(user.id);
+           const { skills } = get();
+           const quickSkills = DEFAULT_SKILLS.map(name => {
+              const existing = skills.find(s => s.name === name);
+              return {
+                id: name,
+                name,
+                progress: existing?.progress || 0,
+                isLocked: existing?.isLocked,
+                level: existing?.level,
+                applicationStatus: existing?.applicationStatus,
+                completionStatus: existing?.completionStatus,
+                hasExamPassed: existing?.hasExamPassed,
+                approvedCount: existing?.approvedCount,
+                pendingCount: pendingCounts[name] || 0,
+              } as Skill;
+           });
+           set({ skills: quickSkills });
+         } catch (e) {
+           console.warn('Fast pending counts failed', e);
+         }
          // Admin/Moderator logic: Combine Global Stats (for Dashboard) + Personal Stats (for Progress)
          const data = await api.logs.listAll(); 
          

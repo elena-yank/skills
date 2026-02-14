@@ -16,7 +16,7 @@ import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
 
 export const Dashboard: React.FC = () => {
-  const { user, skills, fetchSkills, signOut, addPracticeLog } = useStore();
+  const { user, skills, fetchSkills, signOut, addPracticeLog, isLoading } = useStore();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
   const [isExamMode, setIsExamMode] = useState(false);
@@ -31,6 +31,17 @@ export const Dashboard: React.FC = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [animateProgress, setAnimateProgress] = useState(false);
+  const initialProgressShown = useRef(false);
+  const wasLoading = useRef(false);
+
+  useEffect(() => {
+    if (wasLoading.current && !isLoading && !initialProgressShown.current) {
+      initialProgressShown.current = true;
+      setTimeout(() => setAnimateProgress(true), 0);
+    }
+    wasLoading.current = isLoading;
+  }, [isLoading]);
 
   const handleCompletionRequest = async (skillName: string) => {
     if (!confirm('Вы уверены, что хотите подать заявку на завершение обучения?')) return;
@@ -290,12 +301,12 @@ export const Dashboard: React.FC = () => {
           <img
             src={frameSvg}
             alt="Frame"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
+            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
           />
-           <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
+           <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg [@media(orientation:landscape)]:hidden"></div>
 
-          <div className="relative z-50 flex flex-col md:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 gap-4 md:gap-0">
-            <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+          <div className="relative z-50 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 [@media(orientation:landscape)]:px-10 gap-4 md:gap-0">
+            <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 text-center md:text-left [@media(orientation:landscape)]:text-left [@media(orientation:landscape)]:pl-3">
               <div className="relative">
                 <div 
                     className={`w-12 h-12 md:w-16 md:h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
@@ -343,22 +354,22 @@ export const Dashboard: React.FC = () => {
               />
 
               <div>
-                <div className="flex items-center gap-4 justify-center md:justify-start">
+                <div className="flex items-center gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                     <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold">
                         {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
                     </h2>
                     <Notifications />
                 </div>
-                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 justify-center md:justify-start">
+                <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-2 md:gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                   <p className="text-white text-sm md:text-lg font-century font-normal">
                     Добро пожаловать, {user?.name || 'Волшебник'}
                   </p>
                 </div>
-                <div className="flex flex-col md:flex-row items-center gap-4 mt-1 justify-center md:justify-start">
+                <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 mt-1 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                   {!showAdminInterface && (
                     <button 
                         onClick={handleCopyLink}
-                        className="text-xs flex items-center justify-center md:justify-start gap-1 text-white hover:text-hogwarts-gold font-nexa underline uppercase w-full md:w-auto"
+                        className="text-xs flex items-center justify-center md:justify-start [@media(orientation:landscape)]:justify-start gap-1 text-white hover:text-hogwarts-gold font-nexa underline uppercase w-full md:w-auto [@media(orientation:landscape)]:w-auto"
                     >
                         {copied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
                         {copied ? 'Ссылка скопирована' : 'Поделиться профилем'}
@@ -367,7 +378,7 @@ export const Dashboard: React.FC = () => {
                   {isRealAdmin && (
                     <button
                       onClick={() => setAdminView(!adminView)}
-                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm whitespace-nowrap w-full md:w-auto"
+                      className="bg-hogwarts-gold text-hogwarts-ink font-century font-bold px-4 py-1 rounded-xl hover:bg-yellow-500 transition-colors shadow-md text-xs md:text-sm whitespace-nowrap w-full md:w-auto [@media(orientation:landscape)]:w-auto"
                     >
                       {adminView ? 'Мои навыки' : 'Панель администратора'}
                     </button>
@@ -375,17 +386,17 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-2 w-full md:w-auto md:items-end">
+            <div className="flex flex-col gap-2 w-full md:w-auto [@media(orientation:landscape)]:w-auto md:items-end [@media(orientation:landscape)]:items-end">
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto justify-center md:justify-end"
+                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto [@media(orientation:landscape)]:w-auto justify-center md:justify-end [@media(orientation:landscape)]:justify-end"
               >
                 <Settings className="w-5 h-5" />
                 Настройки
               </button>
               <button
                 onClick={signOut}
-                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto justify-center md:justify-end"
+                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto [@media(orientation:landscape)]:w-auto justify-center md:justify-end [@media(orientation:landscape)]:justify-end"
               >
                 <LogOut className="w-5 h-5" />
                 Выйти
@@ -428,7 +439,7 @@ export const Dashboard: React.FC = () => {
                      return (
                         <div 
                           key={`${category.name}-${skill.id}`} 
-                          className={`px-8 py-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-[length:100%_100%] md:bg-contain ${isBlocked ? 'opacity-60 grayscale-[0.3]' : ''}`}
+                          className={`px-8 py-4 md:p-12 rounded-lg shadow-md relative overflow-hidden group hover:shadow-xl transition-all bg-no-repeat bg-center bg-[length:100%_100%] md:bg-contain ${isBlocked ? 'opacity-60 grayscale-[0.3]' : ''} flex flex-col items-center justify-center gap-2 md:gap-3 min-h-[140px] md:min-h-[200px] [@media(orientation:portrait)]:py-5 [@media(orientation:portrait)]:min-h-[160px]`}
                           style={{ backgroundImage: `url(${scrollImg})` }}
                         >
                           {isBlocked && (
@@ -438,7 +449,7 @@ export const Dashboard: React.FC = () => {
                                 </span>
                             </div>
                           )}
-                          <div className="flex flex-col justify-between items-center mb-2 gap-1 md:gap-0">
+                          <div className="flex flex-col justify-center items-center gap-1 md:gap-0">
                             <div className="flex items-center justify-center w-full relative px-2 gap-1">
                                 <h3 
                                 onClick={() => !isBlocked && handleSkillClick(skill.name)}
@@ -557,13 +568,13 @@ export const Dashboard: React.FC = () => {
                                      </div>
                                 ) : (
                                     <>
-                                        <div className="flex items-center justify-center gap-2 w-[78%] mx-auto md:w-full">
+                                        <div className="flex items-center justify-center gap-2 w-[78%] mx-auto md:w-full mt-0 md:mt-0">
                                             <div 
                                                 className={`flex-grow h-3 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                                 onClick={() => !isBlocked && handleSkillClick(skill.name)}
                                             >
                                                 <div
-                                                    className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
+                                                    className={`h-full overflow-hidden relative ${animateProgress ? 'transition-all duration-1000 ease-out' : ''}`}
                                                     style={{ width: `${skill.progress}%` }}
                                                 >
                                                     <div 
@@ -590,7 +601,8 @@ export const Dashboard: React.FC = () => {
                                             )}
                                         </div>
                                         
-                                        <div className="mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1">
+                                        <div className="mt-0.5 md:mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1">
+                                            
                                             {/* Tooltip positioned relative to the container (center of progress bar) */}
                                             {getSkillNextStepInfo(skill) && !isBlocked && (
                                                 <div className={`
