@@ -575,12 +575,14 @@ export const SkillDetail: React.FC = () => {
   const { skillName, username: routeUsername } = useParams<{ skillName: string; username?: string }>();
   const [searchParams] = useSearchParams();
   const forcePersonalView = searchParams.get('view') === 'personal';
+  const initialStatusParam = searchParams.get('status');
+  const initialViewMode: 'pending' | 'approved' = initialStatusParam === 'approved' ? 'approved' : 'pending';
   const queryUsername = searchParams.get('username');
   const username = routeUsername || queryUsername; // Support both route and query param
   
   const [logs, setLogs] = useState<Log[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'pending' | 'approved'>('pending'); // For admin
+  const [viewMode, setViewMode] = useState<'pending' | 'approved'>(initialViewMode); // For admin
   const navigate = useNavigate();
   const { user, deletePracticeLog, updateLogStatus, fetchSkills } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);

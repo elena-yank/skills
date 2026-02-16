@@ -449,7 +449,19 @@ export const PublicProfile: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className={`w-[78%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${shouldShowAsBlocked ? 'grayscale opacity-50' : ''}`}>
+                                <div 
+                                    className={`w-[78%] mx-auto md:w-full h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${shouldShowAsBlocked ? 'grayscale opacity-50' : ''}`}
+                                    onMouseEnter={() => {
+                                        if (!shouldShowAsBlocked) {
+                                            setActiveTooltip(skill.name);
+                                        }
+                                    }}
+                                    onMouseLeave={() => {
+                                        if (!shouldShowAsBlocked) {
+                                            setActiveTooltip(null);
+                                        }
+                                    }}
+                                >
                                     <div
                                         className="h-full overflow-hidden transition-all duration-1000 ease-out relative"
                                         style={{ width: `${skill.progress}%` }}
@@ -471,7 +483,7 @@ export const PublicProfile: React.FC = () => {
                                             bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
                                             border border-hogwarts-gold/30
                                             after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
-                                            ${activeTooltip === skill.name ? 'block' : 'hidden group-hover:block'}
+                                            ${activeTooltip === skill.name ? 'block' : 'hidden'}
                                         `}>
                                             {getSkillNextStepInfo(skill)}
                                         </div>
@@ -483,6 +495,18 @@ export const PublicProfile: React.FC = () => {
                                             e.stopPropagation();
                                             if (!shouldShowAsBlocked) {
                                                 setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                            }
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.stopPropagation();
+                                            if (!shouldShowAsBlocked) {
+                                                setActiveTooltip(skill.name);
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.stopPropagation();
+                                            if (!shouldShowAsBlocked) {
+                                                setActiveTooltip(null);
                                             }
                                         }}
                                     >

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, LogOut, GraduationCap, Share2, Check, FileText, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload, Settings } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload, Settings } from 'lucide-react';
 import { Notifications } from '../components/Notifications';
 import { SettingsModal } from '../components/SettingsModal';
 import { useStore, SKILL_CATEGORIES } from '../store';
@@ -178,11 +178,15 @@ export const Dashboard: React.FC = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSkillClick = (skillName: string) => {
+  const handleSkillClick = (skillName: string, initialStatus?: 'pending' | 'approved') => {
     if (isRealAdmin && !adminView) {
       navigate(`/skill/${encodeURIComponent(skillName)}?view=personal`);
     } else {
-      navigate(`/skill/${encodeURIComponent(skillName)}`);
+      if (isRealAdmin && adminView && initialStatus) {
+        navigate(`/skill/${encodeURIComponent(skillName)}?status=${initialStatus}`);
+      } else {
+        navigate(`/skill/${encodeURIComponent(skillName)}`);
+      }
     }
   };
 
@@ -515,18 +519,30 @@ export const Dashboard: React.FC = () => {
                               // Admin View: Numbers
                               <div 
                                 className={`flex items-center justify-center gap-4 cursor-pointer relative ${isBlocked ? 'opacity-50' : ''}`}
-                                onClick={() => !isBlocked && handleSkillClick(skill.name)}
                               >
-                                  <div className="flex flex-col items-center">
-                                  <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
-                                  <span className="text-2xl md:text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
-                              </div>
-                              <div className="flex flex-col items-center">
-                                  <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">На проверке</span>
-                                  <span className="text-2xl md:text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
-                              </div>
-                                  <div className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <FileText className="w-5 h-5 md:w-6 md:h-6 text-hogwarts-blue" />
+                                  <div 
+                                    className="flex flex-col items-center"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isBlocked) {
+                                        handleSkillClick(skill.name, 'approved');
+                                      }
+                                    }}
+                                  >
+                                      <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
+                                      <span className="text-2xl md:text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
+                                  </div>
+                                  <div 
+                                    className="flex flex-col items-center"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!isBlocked) {
+                                        handleSkillClick(skill.name, 'pending');
+                                      }
+                                    }}
+                                  >
+                                      <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">На проверке</span>
+                                      <span className="text-2xl md:text-3xl font-magical text-hogwarts-green">+{skill.pendingCount || 0}</span>
                                   </div>
                               </div>
                           ) : (
@@ -590,6 +606,16 @@ export const Dashboard: React.FC = () => {
                                     <div 
                                         className={`flex-1 max-w-[55%] md:max-w-[60%] h-2.5 md:h-4 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                         onClick={() => !isBlocked && handleSkillClick(skill.name)}
+                                        onMouseEnter={() => {
+                                            if (!isBlocked) {
+                                                setActiveTooltip(skill.name);
+                                            }
+                                        }}
+                                        onMouseLeave={() => {
+                                            if (!isBlocked) {
+                                                setActiveTooltip(null);
+                                            }
+                                        }}
                                     >
                                         <div
                                             className={`h-full overflow-hidden relative ${animateProgress ? 'transition-all duration-1000 ease-out' : ''}`}
@@ -632,7 +658,7 @@ export const Dashboard: React.FC = () => {
                                                     bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
                                                     border border-hogwarts-gold/30
                                                     after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
-                                                    ${activeTooltip === skill.name ? 'block' : 'hidden group-hover:block'}
+                                                    ${activeTooltip === skill.name ? 'block' : 'hidden'}
                                                 `}>
                                                     {getSkillNextStepInfo(skill)}
                                                 </div>
@@ -644,6 +670,18 @@ export const Dashboard: React.FC = () => {
                                                     e.stopPropagation();
                                                     if (!isBlocked) {
                                                         setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                                    }
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isBlocked) {
+                                                        setActiveTooltip(skill.name);
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isBlocked) {
+                                                        setActiveTooltip(null);
                                                     }
                                                 }}
                                             >
