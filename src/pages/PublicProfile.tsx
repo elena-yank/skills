@@ -7,7 +7,7 @@ import { SkillInfoModal } from '../components/SkillInfoModal';
 import { ImageModal } from '../components/ImageModal';
 import { GrantSkillModal } from '../components/GrantSkillModal';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
-import { calculateSkillProgress, calculateSpecialSkillStatus, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS, getSkillTitleClass } from '../lib/skillUtils';
+import { calculateSkillProgress, calculateSpecialSkillStatus, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS, getSkillTitleClass, applyAgeRestrictions } from '../lib/skillUtils';
 import { User } from '../lib/api/types';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -22,6 +22,7 @@ interface Skill {
   applicationStatus?: string;
   approvedCount?: number;
   hasExamPassed?: boolean;
+  ageCapMessage?: string;
 }
 
 const ALL_SKILLS = Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills)));
@@ -117,6 +118,7 @@ export const PublicProfile: React.FC = () => {
   };
 
   const getSkillNextStepInfo = (skill: Skill) => {
+    if (skill.ageCapMessage) return skill.ageCapMessage;
     const count = skill.approvedCount || 0;
     
     // Special Skills
@@ -215,27 +217,33 @@ export const PublicProfile: React.FC = () => {
       const calculatedSkills = ALL_SKILLS.map(name => {
           const count = progressMap.get(name) || 0;
           const hasExamPassed = examPassedMap.get(name) || false;
+          const age = userData.age;
           
           if (['Метаморфомагия', 'Провидение'].includes(name)) {
-              const { level, progress } = calculateSpecialSkillStatus(count);
+              const base = calculateSpecialSkillStatus(count);
+              const adjusted = applyAgeRestrictions(name, age, count, base.progress, base.level);
               
               return {
                   id: name,
                   name,
-                  progress,
-                  level,
+                  progress: adjusted.progress,
+                  level: adjusted.level,
                   applicationStatus: applicationStatusMap.get(name),
-                  approvedCount: count
+                  approvedCount: count,
+                  ageCapMessage: adjusted.ageCapMessage
               };
           }
 
+          const baseProgress = calculateSkillProgress(name, count, hasExamPassed, age);
+          const adjusted = applyAgeRestrictions(name, age, count, baseProgress);
           return {
               id: name,
               name,
-              progress: calculateSkillProgress(name, count, hasExamPassed),
+              progress: adjusted.progress,
               applicationStatus: applicationStatusMap.get(name),
               approvedCount: count,
-              hasExamPassed
+              hasExamPassed,
+              ageCapMessage: adjusted.ageCapMessage
           };
       });
 

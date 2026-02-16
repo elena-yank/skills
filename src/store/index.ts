@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
-import { calculateSkillProgress, calculateSpecialSkillStatus } from '../lib/skillUtils';
+import { calculateSkillProgress, calculateSpecialSkillStatus, applyAgeRestrictions } from '../lib/skillUtils';
 
 // Define our own simple User type
 export interface Wizard {
@@ -20,11 +20,13 @@ export interface Skill {
   progress: number; // 0-100
   pendingCount?: number;
   approvedCount?: number;
+  totalPosts?: number;
   isLocked?: boolean;
   level?: number;
   applicationStatus?: 'pending' | 'approved' | 'rejected' | 'none';
   completionStatus?: 'pending' | 'rejected' | 'none';
   hasExamPassed?: boolean;
+  ageCapMessage?: string;
 }
 
 import { Notification } from '../lib/api/types';
@@ -215,6 +217,7 @@ export const useStore = create<AppState>((set, get) => ({
          const personalExamPassedMap = new Map<string, boolean>();
          const personalSpecialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
          const personalCompletionStatus = new Map<string, 'pending' | 'rejected'>();
+         const personalTotalPostsMap = new Map<string, number>();
 
          data?.forEach(log => {
              // --- Dashboard Stats Logic ---
@@ -253,10 +256,15 @@ export const useStore = create<AppState>((set, get) => ({
                          } else if (log.status === 'pending') {
                              personalSpecialSkillAppStatus.set(log.skill_name, 'pending');
                          } else if (log.status === 'rejected' && current !== 'pending') {
-                             personalSpecialSkillAppStatus.set(log.skill_name, 'rejected');
-                         }
+                         personalSpecialSkillAppStatus.set(log.skill_name, 'rejected');
                      }
-                     return; // Don't count application logs for progress
+                 }
+                 return; // Don't count application logs for progress
+             }
+
+                 if (log.status !== 'rejected') {
+                     const totalCurrent = personalTotalPostsMap.get(log.skill_name) || 0;
+                     personalTotalPostsMap.set(log.skill_name, totalCurrent + 1);
                  }
 
                  if (log.status === 'approved') {
@@ -280,6 +288,7 @@ export const useStore = create<AppState>((set, get) => ({
              let level = undefined;
              let isLocked = false;
              let applicationStatus = undefined;
+             let ageCapMessage = undefined as string | undefined;
 
              if (['Метаморфомагия', 'Провидение'].includes(name)) {
                 const appStatus = (personalSpecialSkillAppStatus.get(name) || 'none') as 'pending' | 'approved' | 'rejected' | 'none';
@@ -293,9 +302,18 @@ export const useStore = create<AppState>((set, get) => ({
                     const status = calculateSpecialSkillStatus(personalCount);
                     level = status.level;
                     progress = status.progress;
+                    if (name === 'Метаморфомагия') {
+                        const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress, level);
+                        progress = adjusted.progress;
+                        level = adjusted.level;
+                        ageCapMessage = adjusted.ageCapMessage;
+                    }
                 }
              } else {
-                 progress = calculateSkillProgress(name, personalCount, hasExamPassed);
+                progress = calculateSkillProgress(name, personalCount, hasExamPassed, user.age);
+                const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress);
+                progress = adjusted.progress;
+                ageCapMessage = adjusted.ageCapMessage;
              }
 
              return {
@@ -307,11 +325,13 @@ export const useStore = create<AppState>((set, get) => ({
                  applicationStatus,
                  completionStatus: personalCompletionStatus.get(name),
                  hasExamPassed,
+                 ageCapMessage,
                  
                  // Dashboard Stats
                  approvedCount: personalCount, // Use PERSONAL count for display logic (e.g. "15 posts left")
                  pendingCount: globalPendingMap.get(name) || 0, // Pending tasks for admin
-                 globalApprovedCount: globalApprovedMap.get(name) || 0 // Optional: if needed
+                 globalApprovedCount: globalApprovedMap.get(name) || 0, // Optional: if needed
+                 totalPosts: personalTotalPostsMap.get(name) || 0
              };
          }).sort((a, b) => b.progress - a.progress); 
          
@@ -324,6 +344,7 @@ export const useStore = create<AppState>((set, get) => ({
          const examPassedMap = new Map<string, boolean>();
          const specialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
          const completionStatusMap = new Map<string, 'pending' | 'rejected'>();
+         const totalPostsMap = new Map<string, number>();
 
          data?.forEach(log => {
              if (log.type === 'completion_request') {
@@ -352,6 +373,11 @@ export const useStore = create<AppState>((set, get) => ({
                      }
                  }
                      return; // Don't count application logs for progress
+             }
+
+             if (log.status !== 'rejected') {
+                 const totalCurrent = totalPostsMap.get(log.skill_name) || 0;
+                 totalPostsMap.set(log.skill_name, totalCurrent + 1);
              }
 
              if (log.status === 'approved') {
@@ -383,19 +409,23 @@ export const useStore = create<AppState>((set, get) => ({
                         applicationStatus: appStatus
                     };
                 }
-                const { level, progress } = calculateSpecialSkillStatus(count);
-                return { id: name, name, progress, isLocked: false, level };
+                const base = calculateSpecialSkillStatus(count);
+                const adjusted = applyAgeRestrictions(name, user.age, count, base.progress, base.level);
+                return { id: name, name, progress: adjusted.progress, isLocked: false, level: adjusted.level, ageCapMessage: adjusted.ageCapMessage };
             }
 
-            const progress = calculateSkillProgress(name, count, hasExamPassed);
+            const baseProgress = calculateSkillProgress(name, count, hasExamPassed, user.age);
+            const adjusted = applyAgeRestrictions(name, user.age, count, baseProgress);
 
             return {
                 id: name,
                 name,
-                progress,
+                progress: adjusted.progress,
                 approvedCount: count,
                 hasExamPassed,
-                completionStatus: completionStatusMap.get(name)
+                completionStatus: completionStatusMap.get(name),
+                ageCapMessage: adjusted.ageCapMessage,
+                totalPosts: totalPostsMap.get(name) || 0
             };
          }).sort((a, b) => b.progress - a.progress);
 

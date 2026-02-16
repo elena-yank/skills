@@ -14,6 +14,8 @@ import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
+import textSvg from '../assets/text.svg';
+import addSvg from '../assets/add.svg';
 
 export const Dashboard: React.FC = () => {
   const { user, skills, fetchSkills, signOut, addPracticeLog, isLoading } = useStore();
@@ -106,6 +108,7 @@ export const Dashboard: React.FC = () => {
   };
 
   const getSkillNextStepInfo = (skill: any) => {
+    if (skill.ageCapMessage) return skill.ageCapMessage;
     if (skill.isLocked) return null;
     if (skill.progress >= 100) return 'Максимальный уровень';
     
@@ -453,7 +456,7 @@ export const Dashboard: React.FC = () => {
                             <div className="flex items-center justify-center w-full relative px-2 gap-1">
                                 <h3 
                                 onClick={() => !isBlocked && handleSkillClick(skill.name)}
-                                className={`font-seminaria font-bold text-hogwarts-blue whitespace-nowrap ${getSkillTitleClass(skill.name)} ${isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4'}`}
+                                className={`font-seminaria font-bold text-hogwarts-blue whitespace-nowrap transform translate-y-[10px] md:translate-y-[12px] ${getSkillTitleClass(skill.name)} ${isBlocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:underline decoration-hogwarts-gold underline-offset-4'}`}
                                 >
                                 {skill.name === 'Самостоятельная левитация' ? 'Самост. левитация' : skill.name}
                                 </h3>
@@ -566,42 +569,61 @@ export const Dashboard: React.FC = () => {
                                             </button>
                                          )}
                                      </div>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center justify-center gap-2 w-[78%] mx-auto md:w-full mt-0 md:mt-0">
-                                            <div 
-                                                className={`flex-grow h-3 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                                onClick={() => !isBlocked && handleSkillClick(skill.name)}
+                            ) : (
+                            <>
+                                <div className="flex items-center justify-center gap-3 w-full mt-0 md:mt-0">
+                                    {typeof skill.totalPosts === 'number' && (
+                                        <div className="relative shrink-0">
+                                            <img
+                                                src={textSvg}
+                                                alt="Количество постов"
+                                                className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_4px_rgba(0,0,0,0.45)]"
+                                            />
+                                            <span
+                                                className="absolute left-1/2 top-[78%] md:top-[78%] -translate-x-1/2 -translate-y-1/2 text-[8px] md:text-[10px] text-hogwarts-parchment leading-none drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+                                                style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
                                             >
-                                                <div
-                                                    className={`h-full overflow-hidden relative ${animateProgress ? 'transition-all duration-1000 ease-out' : ''}`}
-                                                    style={{ width: `${skill.progress}%` }}
-                                                >
-                                                    <div 
-                                                        className={`h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0 ${isBlocked ? 'grayscale' : ''}`}
-                                                        style={{ width: `${skill.progress > 0 ? (100 / skill.progress * 100) : 0}%` }}
-                                                    >
-                                                        <div className="absolute inset-0 bg-white/10 opacity-30"></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {!skill.isLocked && !isBlocked && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedSkill(skill.name);
-                                                        setIsExamMode(false);
-                                                        setIsApplicationMode(false);
-                                                    }}
-                                                    className="shrink-0 p-1 bg-hogwarts-green text-hogwarts-gold rounded-full hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold"
-                                                    title="Практиковать этот навык"
-                                                >
-                                                    <Plus className="w-3 h-3 md:w-5 md:h-5" />
-                                                </button>
-                                            )}
+                                                {skill.totalPosts}
+                                            </span>
                                         </div>
+                                    )}
+                                    <div 
+                                        className={`flex-1 max-w-[55%] md:max-w-[60%] h-2.5 md:h-4 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                        onClick={() => !isBlocked && handleSkillClick(skill.name)}
+                                    >
+                                        <div
+                                            className={`h-full overflow-hidden relative ${animateProgress ? 'transition-all duration-1000 ease-out' : ''}`}
+                                            style={{ width: `${skill.progress}%` }}
+                                        >
+                                            <div 
+                                                className={`h-full bg-gradient-to-r from-hogwarts-red via-hogwarts-gold to-hogwarts-green absolute top-0 left-0 ${isBlocked ? 'grayscale' : ''}`}
+                                                style={{ width: `${skill.progress > 0 ? (100 / skill.progress * 100) : 0}%` }}
+                                            >
+                                                <div className="absolute inset-0 bg-white/10 opacity-30"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {!skill.isLocked && !isBlocked && !skill.ageCapMessage && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedSkill(skill.name);
+                                                setIsExamMode(false);
+                                                setIsApplicationMode(false);
+                                            }}
+                                            className="shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full transition-transform hover:scale-105 flex items-center justify-center"
+                                            title="Practise this skill"
+                                        >
+                                            <img
+                                                src={addSvg}
+                                                alt="Добавить пост"
+                                                className="w-2/3 h-2/3"
+                                            />
+                                        </button>
+                                    )}
+                                </div>
                                         
-                                        <div className="mt-0.5 md:mt-2 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1">
+                                        <div className="mt-0 md:mt-0 flex justify-center text-[10px] font-bold text-hogwarts-ink/70 font-nexa uppercase gap-2 relative z-1 transform -translate-y-[8px]">
                                             
                                             {/* Tooltip positioned relative to the container (center of progress bar) */}
                                             {getSkillNextStepInfo(skill) && !isBlocked && (

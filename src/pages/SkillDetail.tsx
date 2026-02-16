@@ -32,7 +32,9 @@ const LogItem: React.FC<{
     onDelete: (id: string) => void; 
     isOwner: boolean; 
     onUpdateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => void;
-}> = ({ log, onDelete, isOwner, onUpdateStatus }) => {
+    indexInTotal?: number;
+    totalNonRejected?: number;
+}> = ({ log, onDelete, isOwner, onUpdateStatus, indexInTotal, totalNonRejected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -290,6 +292,11 @@ const LogItem: React.FC<{
                         hour: '2-digit',
                         minute: '2-digit'
                     })}
+                    {typeof indexInTotal === 'number' && typeof totalNonRejected === 'number' && (
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs md:text-sm bg-hogwarts-ink/5 text-hogwarts-ink tracking-wide">
+                            {indexInTotal} из {totalNonRejected}
+                        </span>
+                    )}
                 </>
             )}
             
@@ -732,6 +739,10 @@ export const SkillDetail: React.FC = () => {
   });
 
   const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
+  const visibleLogs = sortedLogs.filter(log => log.type !== 'completion_request');
+  const nonRejectedLogs = visibleLogs.filter(log => log.status !== 'rejected');
+  const totalNonRejected = nonRejectedLogs.length;
+  const logIndexMap = new Map(nonRejectedLogs.map((log, index) => [log.id, index + 1]));
 
   return (
     <div className="min-h-screen relative">
@@ -853,6 +864,11 @@ export const SkillDetail: React.FC = () => {
                                 {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
                             </span>
                             {!isAdmin && (
+                                <span className="text-xs md:text-sm text-hogwarts-gold font-century">
+                                    Всего постов: {totalNonRejected}
+                                </span>
+                            )}
+                            {!isAdmin && (
                                 <button
                                     onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                                     className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-hogwarts-gold hover:text-white"
@@ -938,15 +954,15 @@ export const SkillDetail: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {sortedLogs
-                .filter(log => log.type !== 'completion_request')
-                .map((log) => (
+            {visibleLogs.map((log) => (
               <LogItem 
                 key={log.id} 
                 log={log} 
                 onDelete={handleDeleteLog}
                 isOwner={isOwner}
                 onUpdateStatus={handleUpdateStatus}
+                indexInTotal={logIndexMap.get(log.id)}
+                totalNonRejected={totalNonRejected}
               />
             ))}
           </div>
