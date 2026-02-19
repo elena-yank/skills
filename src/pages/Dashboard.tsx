@@ -27,6 +27,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [adminView, setAdminView] = useState(true);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   
   const [isUploading, setIsUploading] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
@@ -44,6 +45,28 @@ export const Dashboard: React.FC = () => {
     }
     wasLoading.current = isLoading;
   }, [isLoading]);
+
+  useEffect(() => {
+    const hasTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    setIsTouchDevice(hasTouch);
+  }, []);
+
+  useEffect(() => {
+    if (!isTouchDevice) return;
+    const handleTouchStart = (event: TouchEvent) => {
+      if (!activeTooltip) return;
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const inside = target.closest('[data-skill-tooltip-container="true"]');
+      if (!inside) {
+        setActiveTooltip(null);
+      }
+    };
+    document.addEventListener('touchstart', handleTouchStart);
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, [isTouchDevice, activeTooltip]);
 
   const handleCompletionRequest = async (skillName: string) => {
     if (!confirm('Вы уверены, что хотите подать заявку на завершение обучения?')) return;
@@ -314,7 +337,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="relative z-50 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 [@media(orientation:landscape)]:px-10 gap-4 md:gap-0">
             <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 text-center md:text-left [@media(orientation:landscape)]:text-left [@media(orientation:landscape)]:pl-3">
-              <div className="relative">
+              <div className="relative md:-ml-4 [@media(orientation:landscape)]:-ml-4">
                 <div 
                     className={`w-12 h-12 md:w-16 md:h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
                     onClick={!showAdminInterface ? handleAvatarClick : undefined}
@@ -588,33 +611,32 @@ export const Dashboard: React.FC = () => {
                             ) : (
                             <>
                                 <div className="flex items-center justify-center gap-3 w-full mt-0 md:mt-0">
-                                    {typeof skill.totalPosts === 'number' && (
-                                        <div className="relative shrink-0">
-                                            <img
-                                                src={textSvg}
-                                                alt="Количество постов"
-                                                className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_4px_rgba(0,0,0,0.45)]"
-                                            />
-                                            <span
-                                                className="absolute left-1/2 top-[78%] md:top-[78%] -translate-x-1/2 -translate-y-1/2 text-[8px] md:text-[10px] text-hogwarts-parchment leading-none drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
-                                                style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
-                                            >
-                                                {skill.totalPosts}
-                                            </span>
-                                        </div>
-                                    )}
+                                    <div className="relative shrink-0">
+                                        <img
+                                            src={textSvg}
+                                            alt="Количество постов"
+                                            className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_4px_rgba(0,0,0,0.45)]"
+                                        />
+                                        <span
+                                            className="absolute left-1/2 top-[78%] md:top-[78%] -translate-x-1/2 -translate-y-1/2 text-[8px] md:text-[10px] text-hogwarts-parchment leading-none drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+                                            style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
+                                        >
+                                            {skill.totalPosts ?? 0}
+                                        </span>
+                                    </div>
                                     <div 
-                                        className={`flex-1 max-w-[55%] md:max-w-[60%] h-2.5 md:h-4 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                        onClick={() => !isBlocked && handleSkillClick(skill.name)}
-                                        onMouseEnter={() => {
-                                            if (!isBlocked) {
-                                                setActiveTooltip(skill.name);
+                                        data-skill-tooltip-container="true"
+                                        className={`flex-1 max-w-[55%] md:max-w-[60%] h-4 md:h-5 bg-hogwarts-silver/20 rounded-full border border-hogwarts-bronze overflow-hidden ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                        onClick={(e) => {
+                                            if (isBlocked) return;
+                                            if (isTouchDevice) {
+                                                e.stopPropagation();
+                                                if (activeTooltip !== skill.name) {
+                                                    setActiveTooltip(skill.name);
+                                                }
+                                                return;
                                             }
-                                        }}
-                                        onMouseLeave={() => {
-                                            if (!isBlocked) {
-                                                setActiveTooltip(null);
-                                            }
+                                            handleSkillClick(skill.name);
                                         }}
                                     >
                                         <div
@@ -655,9 +677,9 @@ export const Dashboard: React.FC = () => {
                                             {getSkillNextStepInfo(skill) && !isBlocked && (
                                                 <div className={`
                                                     absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
-                                                    bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
+                                                    bg-black text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
                                                     border border-hogwarts-gold/30
-                                                    after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
+                                                    after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-black
                                                     ${activeTooltip === skill.name ? 'block' : 'hidden'}
                                                 `}>
                                                     {getSkillNextStepInfo(skill)}
@@ -665,12 +687,18 @@ export const Dashboard: React.FC = () => {
                                             )}
 
                                             <div 
+                                                data-skill-tooltip-container="true"
                                                 className={`relative group inline-flex flex-col items-center ${isBlocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (!isBlocked) {
-                                                        setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
+                                                    if (isBlocked) return;
+                                                    if (isTouchDevice) {
+                                                        if (activeTooltip !== skill.name) {
+                                                            setActiveTooltip(skill.name);
+                                                        }
+                                                        return;
                                                     }
+                                                    setActiveTooltip(activeTooltip === skill.name ? null : skill.name);
                                                 }}
                                                 onMouseEnter={(e) => {
                                                     e.stopPropagation();

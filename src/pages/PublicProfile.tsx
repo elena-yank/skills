@@ -480,9 +480,9 @@ export const PublicProfile: React.FC = () => {
                                     {getSkillNextStepInfo(skill) && !shouldShowAsBlocked && (
                                         <div className={`
                                             absolute bottom-full mb-2 px-3 py-2 left-1/2 -translate-x-1/2
-                                            bg-hogwarts-ink text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
+                                            bg-black text-white text-xs rounded-md shadow-xl whitespace-nowrap z-50
                                             border border-hogwarts-gold/30
-                                            after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-hogwarts-ink
+                                            after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-4 after:border-transparent after:border-t-black
                                             ${activeTooltip === skill.name ? 'block' : 'hidden'}
                                         `}>
                                             {getSkillNextStepInfo(skill)}

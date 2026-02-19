@@ -83,8 +83,8 @@ export const SKILL_CATEGORIES = [
 
 const DEFAULT_SKILLS = Array.from(new Set(SKILL_CATEGORIES.flatMap(c => c.skills)));
 
-// Simple persistence key
 const STORAGE_KEY = 'hogwarts_wizard_session';
+const SKILLS_STORAGE_KEY = 'hogwarts_skills_cache';
 
 const getInitialUser = (): Wizard | null => {
   try {
@@ -95,9 +95,24 @@ const getInitialUser = (): Wizard | null => {
   }
 };
 
+const getInitialSkills = (): Skill[] => {
+  try {
+    const stored = localStorage.getItem(SKILLS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch {
+    
+  }
+  return DEFAULT_SKILLS.map(name => ({ id: name, name, progress: 0 }));
+};
+
 export const useStore = create<AppState>((set, get) => ({
   user: getInitialUser(),
-  skills: DEFAULT_SKILLS.map(name => ({ id: name, name, progress: 0 })),
+  skills: getInitialSkills(),
   notifications: [],
   isLoading: false,
 
@@ -279,7 +294,7 @@ export const useStore = create<AppState>((set, get) => ({
              }
          });
          
-         const updatedSkills = DEFAULT_SKILLS.map(name => {
+        const updatedSkills = DEFAULT_SKILLS.map(name => {
              // Calculate Personal Progress
              const personalCount = personalApprovedMap.get(name) || 0;
              const hasExamPassed = personalExamPassedMap.get(name) || false;
@@ -336,6 +351,11 @@ export const useStore = create<AppState>((set, get) => ({
          }).sort((a, b) => b.progress - a.progress); 
          
          set({ skills: updatedSkills });
+         try {
+           localStorage.setItem(SKILLS_STORAGE_KEY, JSON.stringify(updatedSkills));
+         } catch {
+           
+         }
       } else {
          // Regular user logic
          const data = await api.logs.list(user.id);
@@ -391,7 +411,7 @@ export const useStore = create<AppState>((set, get) => ({
              }
          });
 
-         const updatedSkills = DEFAULT_SKILLS.map(name => {
+        const updatedSkills = DEFAULT_SKILLS.map(name => {
             const count = progressMap.get(name) || 0;
             const hasExamPassed = examPassedMap.get(name) || false;
 
@@ -430,6 +450,11 @@ export const useStore = create<AppState>((set, get) => ({
          }).sort((a, b) => b.progress - a.progress);
 
          set({ skills: updatedSkills });
+         try {
+           localStorage.setItem(SKILLS_STORAGE_KEY, JSON.stringify(updatedSkills));
+         } catch {
+           
+         }
       }
     } catch (error) {
       console.error('Error fetching skills:', error);
@@ -439,10 +464,20 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addPracticeLog: async (skillName, content, wordCount, postLink, viewAsUser?: boolean, type: 'practice' | 'exam' | 'application' | 'completion_request' = 'practice') => {
-    const { user, fetchSkills } = get();
+    const { user, fetchSkills, skills } = get();
     if (!user) return;
 
     try {
+      if (type !== 'application' && type !== 'completion_request') {
+        set({
+          skills: skills.map(skill =>
+            skill.name === skillName
+              ? { ...skill, totalPosts: (skill.totalPosts || 0) + 1 }
+              : skill
+          )
+        });
+      }
+
       await api.logs.create({
         user_id: user.id,
         skill_name: skillName,
@@ -452,10 +487,14 @@ export const useStore = create<AppState>((set, get) => ({
         type
       });
 
-      // Refresh skills to update progress
       await fetchSkills(viewAsUser);
     } catch (error) {
       console.error('Error adding log:', error);
+      try {
+        await fetchSkills(viewAsUser);
+      } catch (e) {
+        console.error('Error rolling back skills after failed log add:', e);
+      }
       throw error;
     }
   },
@@ -487,8 +526,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   signOut: async () => {
-    // Just clear local state
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SKILLS_STORAGE_KEY);
     set({ user: null, skills: DEFAULT_SKILLS.map(name => ({ id: name, name, progress: 0 })) });
   }
 }));

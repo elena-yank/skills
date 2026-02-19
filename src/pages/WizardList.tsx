@@ -201,7 +201,7 @@ export const WizardList: React.FC = () => {
                           ${hasSpecialStyle 
                             ? isHufflepuff || isVillage
                               ? 'text-hogwarts-ink group-hover:text-black' 
-                              : isSlytherin
+                              : isSlytherin || isRavenclaw
                                 ? 'text-white group-hover:text-hogwarts-gold'
                                 : 'text-hogwarts-gold group-hover:text-white' 
                             : 'text-hogwarts-ink group-hover:text-hogwarts-red'}`}>
