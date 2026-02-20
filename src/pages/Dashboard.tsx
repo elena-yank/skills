@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Plus, LogOut, GraduationCap, Share2, Check, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload, Settings } from 'lucide-react';
+import { Plus, LogOut, GraduationCap, Share2, Check, Users, ChevronDown, ChevronUp, Info, Maximize2, Upload, Settings, BookOpen } from 'lucide-react';
 import { Notifications } from '../components/Notifications';
 import { SettingsModal } from '../components/SettingsModal';
 import { useStore, SKILL_CATEGORIES } from '../store';
@@ -327,7 +327,7 @@ export const Dashboard: React.FC = () => {
             </button>
         </div>
 
-        <div className="relative mb-8 md:mb-12">
+          <div className="relative mb-6 md:mb-8">
           <img
             src={frameSvg}
             alt="Frame"
@@ -335,9 +335,9 @@ export const Dashboard: React.FC = () => {
           />
            <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg [@media(orientation:landscape)]:hidden"></div>
 
-          <div className="relative z-50 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center px-4 py-6 md:px-12 md:py-6 [@media(orientation:landscape)]:px-10 gap-4 md:gap-0">
-            <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 text-center md:text-left [@media(orientation:landscape)]:text-left [@media(orientation:landscape)]:pl-3">
-              <div className="relative md:-ml-4 [@media(orientation:landscape)]:-ml-4">
+          <div className="relative z-50 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center px-6 py-6 md:px-14 md:py-6 [@media(orientation:landscape)]:px-12 gap-4 md:gap-0">
+            <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 md:gap-6 text-center md:text-left [@media(orientation:landscape)]:text-left">
+              <div className="relative">
                 <div 
                     className={`w-12 h-12 md:w-16 md:h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
                     onClick={!showAdminInterface ? handleAvatarClick : undefined}
@@ -383,7 +383,7 @@ export const Dashboard: React.FC = () => {
                   className="hidden"
               />
 
-              <div>
+              <div className="md:ml-2 [@media(orientation:landscape)]:ml-2">
                 <div className="flex items-center gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                     <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold">
                         {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
@@ -416,24 +416,49 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-2 w-full md:w-auto [@media(orientation:landscape)]:w-auto md:items-end [@media(orientation:landscape)]:items-end">
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto [@media(orientation:landscape)]:w-auto justify-center md:justify-end [@media(orientation:landscape)]:justify-end"
-              >
-                <Settings className="w-5 h-5" />
-                Настройки
-              </button>
-              <button
-                onClick={signOut}
-                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all w-full md:w-auto [@media(orientation:landscape)]:w-auto justify-center md:justify-end [@media(orientation:landscape)]:justify-end"
-              >
-                <LogOut className="w-5 h-5" />
-                Выйти
-              </button>
+            <div className="flex flex-col gap-1 w-full md:w-auto [@media(orientation:landscape)]:w-auto md:items-end [@media(orientation:landscape)]:items-end">
+              <div className="flex w-full justify-end gap-2 md:flex-col [@media(orientation:landscape)]:flex-col">
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="flex items-center gap-1 md:gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-3 py-1 md:px-4 md:py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all flex-1 md:flex-none justify-center md:justify-end [@media(orientation:landscape)]:justify-end text-xs md:text-sm"
+                >
+                  <Settings className="w-4 h-4 md:w-5 md:h-5" />
+                  Настройки
+                </button>
+                {!showAdminInterface && (
+                  <button
+                    onClick={() => navigate('/my-stories')}
+                    className="flex items-center gap-1 md:gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-3 py-1 md:px-4 md:py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all flex-1 md:flex-none justify-center md:justify-end [@media(orientation:landscape)]:justify-end text-xs md:text-sm md:hidden [@media(orientation:landscape)]:hidden"
+                  >
+                    <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
+                    Моя история
+                  </button>
+                )}
+              </div>
+              <div className="mt-1 flex w-full justify-end">
+                <button
+                  onClick={signOut}
+                  className="flex items-center gap-1 md:gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-3 py-1 md:px-4 md:py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all flex-1 md:flex-none justify-center md:justify-end [@media(orientation:landscape)]:justify-end text-xs md:text-sm"
+                >
+                  <LogOut className="w-4 h-4 md:w-5 md:h-5" />
+                  Выйти
+                </button>
+              </div>
             </div>
           </div>
         </div>
+
+        {!showAdminInterface && (
+          <div className="mb-8 hidden md:flex [@media(orientation:landscape)]:flex justify-start px-4 md:px-8">
+            <button
+              onClick={() => navigate('/my-stories')}
+              className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all text-sm"
+            >
+              <BookOpen className="w-5 h-5" />
+              Моя история
+            </button>
+          </div>
+        )}
 
         {showSettingsModal && (
           <SettingsModal onClose={() => setShowSettingsModal(false)} />

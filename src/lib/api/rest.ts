@@ -1,4 +1,4 @@
-import { ApiClient, User, PracticeLog } from './types';
+import { ApiClient, User, PracticeLog, Story } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -245,6 +245,62 @@ export const restApi: ApiClient = {
           const result = await res.json();
           if (!res.ok) throw new Error(result.error);
           return result;
+      }
+  },
+  stories: {
+      list: async (userId) => {
+          const params = new URLSearchParams({ user_id: userId });
+          const res = await fetch(`${API_URL}/stories?${params}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data as Story[];
+      },
+      get: async (id) => {
+          const res = await fetch(`${API_URL}/stories/${id}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data as Story;
+      },
+      create: async (payload) => {
+          const res = await fetch(`${API_URL}/stories`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data as Story;
+      },
+      update: async (id, payload) => {
+          const res = await fetch(`${API_URL}/stories/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data as Story;
+      },
+      appendSegments: async (id, userId, segments) => {
+          const res = await fetch(`${API_URL}/stories/${id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId, segments }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          return data as Story;
+      },
+      delete: async (id, userId) => {
+          const res = await fetch(`${API_URL}/stories/${id}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId }),
+          });
+          if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error);
+          }
       }
   }
 };

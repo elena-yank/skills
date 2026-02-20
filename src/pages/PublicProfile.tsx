@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp, Info, Maximize2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Loader2, ChevronDown, ChevronUp, Info, Maximize2, BookOpen } from 'lucide-react';
 import { SKILL_CATEGORIES, useStore } from '../store';
 import { SkillInfoModal } from '../components/SkillInfoModal';
 import { ImageModal } from '../components/ImageModal';
@@ -12,6 +12,7 @@ import { User } from '../lib/api/types';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
+import storyIcon from '../assets/story.svg';
 import gryffindorEmblem from '../assets/gryffindor.svg';
 
 interface Skill {
@@ -340,7 +341,7 @@ export const PublicProfile: React.FC = () => {
                 />
                 <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden [@media(orientation:landscape)]:hidden rounded-lg"></div>
 
-                <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row gap-4 items-center px-4 py-6 md:px-12 md:py-8 [@media(orientation:landscape)]:px-8 [@media(orientation:landscape)]:py-8">
+                <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row gap-4 md:gap-6 items-center px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
                     <div className="relative">
                         <div className="w-16 h-16 md:w-24 md:h-24 [@media(orientation:landscape)]:w-24 [@media(orientation:landscape)]:h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative">
                             {user?.avatar_url ? (
@@ -372,13 +373,35 @@ export const PublicProfile: React.FC = () => {
                         altText={user?.name || 'Avatar'}
                     />
 
-                    <div className="text-center md:text-left [@media(orientation:landscape)]:text-left">
-                        <h2 className="text-xl md:text-4xl [@media(orientation:landscape)]:text-4xl font-seminaria font-bold text-hogwarts-gold mb-1">
-                          {username?.replace(/_/g, ' ')}
-                        </h2>
-                        <p className="text-base md:text-xl [@media(orientation:landscape)]:text-xl text-white font-century">
-                            Карточка навыков
-                        </p>
+                    <div className="text-center md:text-left [@media(orientation:landscape)]:text-left w-full md:ml-2 [@media(orientation:landscape)]:ml-2">
+                        <div className="flex items-center justify-center md:justify-start [@media(orientation:landscape)]:justify-start gap-3 mb-1">
+                          {currentUser && user && currentUser.id === user.id && (
+                            <div className="flex items-center justify-center shrink-0">
+                              <img
+                                src={storyIcon}
+                                alt="Сюжеты"
+                                className="w-12 h-12 md:w-16 md:h-16 object-contain select-none"
+                              />
+                            </div>
+                          )}
+                          <h2 className="text-xl md:text-4xl [@media(orientation:landscape)]:text-4xl font-seminaria font-bold text-hogwarts-gold">
+                            {username?.replace(/_/g, ' ')}
+                          </h2>
+                        </div>
+                        <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-3 md:gap-4 justify-center md:justify-between [@media(orientation:landscape)]:justify-between">
+                            <p className="text-base md:text-xl [@media(orientation:landscape)]:text-xl text-white font-century">
+                                Карточка навыков
+                            </p>
+                            {username && (
+                              <button
+                                onClick={() => navigate(`/u/${username}/stories`)}
+                                className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all text-sm"
+                              >
+                                <BookOpen className="w-5 h-5" />
+                                Сюжеты
+                              </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

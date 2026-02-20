@@ -6,6 +6,8 @@ import { SkillDetail } from './pages/SkillDetail';
 import { PublicProfile } from './pages/PublicProfile';
 import { WizardList } from './pages/WizardList';
 import { DatabaseAdmin } from './pages/DatabaseAdmin';
+import { StoriesList } from './pages/StoriesList';
+import { StoryDetail } from './pages/StoryDetail';
 import { useStore } from './store';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -25,6 +27,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/u/:username" element={<PublicProfile />} />
         <Route path="/u/:username/skill/:skillName" element={<SkillDetail />} />
+        <Route path="/u/:username/stories" element={<StoriesList />} />
+        <Route path="/stories/:id" element={<StoryDetail />} />
         <Route path="/wizards" element={<WizardList />} />
         <Route
           path="/admin/db/edit"
@@ -39,6 +43,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-stories"
+          element={
+            <ProtectedRoute>
+              <StoriesList />
             </ProtectedRoute>
           }
         />

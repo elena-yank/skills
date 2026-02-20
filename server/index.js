@@ -136,17 +136,42 @@ const runMigrations = async () => {
       // Add race_change_requests table
       await client.query(`
         CREATE TABLE IF NOT EXISTS race_change_requests (
-            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-            user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
-            requested_race TEXT NOT NULL,
-            reason TEXT NOT NULL,
-            explanation TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
-            rejection_reason TEXT,
-            admin_id UUID REFERENCES wizards(id),
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            processed_at TIMESTAMPTZ
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
+          requested_race TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          explanation TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+          rejection_reason TEXT,
+          admin_id UUID REFERENCES wizards(id),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          processed_at TIMESTAMPTZ
         )
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS stories (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS story_segments (
+          id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+          story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+          content TEXT NOT NULL,
+          link TEXT,
+          position INTEGER NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_stories_user_id ON stories(user_id)
       `);
 
       await client.query('COMMIT');
@@ -688,6 +713,229 @@ app.delete('/api/notifications/:id', async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM notifications WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/stories', async (req, res) => {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+    try {
+        const result = await pool.query(
+            'SELECT id, user_id, title, created_at, updated_at FROM stories WHERE user_id = $1 ORDER BY created_at DESC',
+            [user_id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/stories/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const storyResult = await pool.query(
+            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+             FROM stories s
+             JOIN wizards w ON s.user_id = w.id
+             WHERE s.id = $1`,
+            [id]
+        );
+        if (storyResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Story not found' });
+        }
+        const story = storyResult.rows[0];
+        const segmentsResult = await pool.query(
+            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            [id]
+        );
+        res.json({ ...story, segments: segmentsResult.rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/stories', async (req, res) => {
+    const { user_id, title, segments } = req.body;
+    if (!user_id || !title || !Array.isArray(segments) || segments.length === 0) {
+        return res.status(400).json({ error: 'user_id, title and segments are required' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const storyResult = await client.query(
+            'INSERT INTO stories (user_id, title) VALUES ($1, $2) RETURNING id, user_id, title, created_at, updated_at',
+            [user_id, title]
+        );
+        const story = storyResult.rows[0];
+        let position = 1;
+        for (const segment of segments) {
+            const content = typeof segment.content === 'string' ? segment.content.trim() : '';
+            const link = segment.link || null;
+            if (!content) continue;
+            await client.query(
+                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
+                [story.id, content, link, position]
+            );
+            position += 1;
+        }
+        const segmentsResult = await client.query(
+            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            [story.id]
+        );
+        await client.query('COMMIT');
+        res.json({ ...story, segments: segmentsResult.rows });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.patch('/api/stories/:id', async (req, res) => {
+    const { id } = req.params;
+    const { user_id, segments } = req.body;
+    if (!user_id || !Array.isArray(segments) || segments.length === 0) {
+        return res.status(400).json({ error: 'user_id and segments are required' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const storyRes = await client.query('SELECT user_id FROM stories WHERE id = $1', [id]);
+        if (storyRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Story not found' });
+        }
+        const story = storyRes.rows[0];
+        if (story.user_id !== user_id) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        const posRes = await client.query(
+            'SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM story_segments WHERE story_id = $1',
+            [id]
+        );
+        let position = posRes.rows[0].next_pos || 1;
+        for (const segment of segments) {
+            const content = typeof segment.content === 'string' ? segment.content.trim() : '';
+            const link = segment.link || null;
+            if (!content) continue;
+            await client.query(
+                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
+                [id, content, link, position]
+            );
+            position += 1;
+        }
+        await client.query(
+            'UPDATE stories SET updated_at = NOW() WHERE id = $1',
+            [id]
+        );
+        const storyResult = await client.query(
+            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+             FROM stories s
+             JOIN wizards w ON s.user_id = w.id
+             WHERE s.id = $1`,
+            [id]
+        );
+        const segmentsResult = await client.query(
+            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            [id]
+        );
+        await client.query('COMMIT');
+        res.json({ ...storyResult.rows[0], segments: segmentsResult.rows });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.put('/api/stories/:id', async (req, res) => {
+    const { id } = req.params;
+    const { user_id, title, segments } = req.body;
+    if (!user_id || !title || !Array.isArray(segments) || segments.length === 0) {
+        return res.status(400).json({ error: 'user_id, title and segments are required' });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const storyRes = await client.query('SELECT user_id FROM stories WHERE id = $1', [id]);
+        if (storyRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Story not found' });
+        }
+        const story = storyRes.rows[0];
+        if (story.user_id !== user_id) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        await client.query('UPDATE stories SET title = $1, updated_at = NOW() WHERE id = $2', [title, id]);
+        await client.query('DELETE FROM story_segments WHERE story_id = $1', [id]);
+        let position = 1;
+        for (const segment of segments) {
+            const content = typeof segment.content === 'string' ? segment.content.trim() : '';
+            const link = segment.link || null;
+            if (!content) continue;
+            await client.query(
+                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
+                [id, content, link, position]
+            );
+            position += 1;
+        }
+        const storyResult = await client.query(
+            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+             FROM stories s
+             JOIN wizards w ON s.user_id = w.id
+             WHERE s.id = $1`,
+            [id]
+        );
+        const segmentsResult = await client.query(
+            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            [id]
+        );
+        await client.query('COMMIT');
+        res.json({ ...storyResult.rows[0], segments: segmentsResult.rows });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/stories/:id', async (req, res) => {
+    const { id } = req.params;
+    const { user_id } = req.body;
+    if (!user_id) {
+        return res.status(400).json({ error: 'user_id is required' });
+    }
+    try {
+        const userRes = await pool.query('SELECT role FROM wizards WHERE id = $1', [user_id]);
+        if (userRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const storyRes = await pool.query('SELECT user_id FROM stories WHERE id = $1', [id]);
+        if (storyRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Story not found' });
+        }
+        const story = storyRes.rows[0];
+        const user = userRes.rows[0];
+        const isOwner = story.user_id === user_id;
+        const isAdmin = user.role === 'admin';
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        await pool.query('DELETE FROM stories WHERE id = $1', [id]);
         res.json({ success: true });
     } catch (err) {
         console.error(err);

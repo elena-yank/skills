@@ -861,7 +861,7 @@ export const SkillDetail: React.FC = () => {
                     )}
                     <div className="flex flex-col">
                         <span className={`whitespace-nowrap ${getSkillHeaderClass(decodedSkillName)}`}>{decodedSkillName}</span>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-white text-base md:text-lg font-century">
                                 {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
                             </span>
@@ -877,6 +877,14 @@ export const SkillDetail: React.FC = () => {
                                     title={sortOrder === 'desc' ? "Сначала новые" : "Сначала старые"}
                                 >
                                     {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                                </button>
+                            )}
+                            {!isAdmin && username && (
+                                <button
+                                    onClick={() => navigate(`/u/${username}/stories`)}
+                                    className="px-3 py-1 rounded-full bg-black/40 border border-hogwarts-gold/60 text-xs md:text-sm text-hogwarts-gold hover:bg-hogwarts-gold hover:text-hogwarts-ink font-nexa uppercase tracking-wide transition-colors"
+                                >
+                                    Сюжеты {username.replace(/_/g, ' ')}
                                 </button>
                             )}
                         </div>

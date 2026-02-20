@@ -67,6 +67,25 @@ export interface SkillMetadata {
   updated_at?: string;
 }
 
+export interface StorySegment {
+  id: string;
+  story_id: string;
+  content: string;
+  link?: string;
+  position: number;
+  created_at: string;
+}
+
+export interface Story {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  user_name?: string;
+  segments?: StorySegment[];
+}
+
 export interface ApiClient {
   auth: {
     signUp: (name: string, pass: string) => Promise<User>;
@@ -88,6 +107,14 @@ export interface ApiClient {
   skills: {
     getMetadata: () => Promise<SkillMetadata[]>;
     updateMetadata: (data: SkillMetadata) => Promise<SkillMetadata>;
+  };
+  stories: {
+    list: (userId: string) => Promise<Story[]>;
+    get: (id: string) => Promise<Story>;
+    create: (data: { user_id: string; title: string; segments: { content: string; link?: string }[] }) => Promise<Story>;
+    update: (id: string, data: { user_id: string; title: string; segments: { content: string; link?: string }[] }) => Promise<Story>;
+    appendSegments: (id: string, userId: string, segments: { content: string; link?: string }[]) => Promise<Story>;
+    delete: (id: string, userId: string) => Promise<void>;
   };
   logs: {
     list: (userId: string, skillName?: string) => Promise<PracticeLog[]>;
