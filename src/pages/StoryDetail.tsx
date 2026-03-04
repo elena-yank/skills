@@ -7,7 +7,7 @@ import frameSvg from '../assets/frame.svg';
 import storyIcon from '../assets/story.svg';
 import owlSvg from '../assets/owl.svg';
 import { useStore } from '../store';
-import { ArrowLeft, Plus, ExternalLink, Trash2, Edit3, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, ExternalLink, Trash2, Edit3, Check, X, ArrowUp } from 'lucide-react';
 
 interface SegmentForm {
   content: string;
@@ -204,6 +204,7 @@ export const StoryDetail: React.FC = () => {
   const [segmentEditContent, setSegmentEditContent] = useState('');
   const [segmentEditLink, setSegmentEditLink] = useState('');
   const [segmentEditAuthor, setSegmentEditAuthor] = useState('');
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const isOwner = !!user && !!story && story.user_id === user.id;
 
@@ -239,6 +240,15 @@ export const StoryDetail: React.FC = () => {
 
     loadStory();
   }, [id]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleAddSegmentField = () => {
     const defaultAuthor = authorsList[0] || '';
@@ -400,6 +410,27 @@ export const StoryDetail: React.FC = () => {
     }
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
+  const scrollToSegment = (index: number) => {
+    const element = document.getElementById(`segment-${index}`);
+    if (element) {
+      const headerOffset = 100; // Примерное смещение, чтобы заголовок не перекрывал
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen relative">
       <div className="fixed inset-0 z-0">
@@ -425,15 +456,24 @@ export const StoryDetail: React.FC = () => {
             />
             <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden [@media(orientation:landscape)]:hidden rounded-lg" />
 
-            <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center gap-4 px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
-              <div className="flex items-center gap-4 flex-1 text-center md:text-left [@media(orientation:landscape)]:text-left justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
-                <div className="flex items-center justify-center shrink-0">
-                  <img
-                    src={storyIcon}
-                    alt="Сюжет"
-                    className="w-12 h-12 md:w-16 md:h-16 object-contain select-none"
-                  />
+            <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-start md:items-center gap-4 px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1 w-full">
+                <div className="flex flex-row items-center gap-4 w-full md:w-auto">
+                  <div className="flex items-center justify-center shrink-0">
+                    <img
+                      src={storyIcon}
+                      alt="Сюжет"
+                      className="w-12 h-12 md:w-16 md:h-16 object-contain select-none"
+                    />
+                  </div>
+                  {/* Заголовок для мобильной версии рядом с иконкой */}
+                  {!isEditing && (
+                    <h2 className="text-xl md:hidden font-seminaria font-bold text-hogwarts-gold leading-tight">
+                      {story ? story.title : 'Сюжет'}
+                    </h2>
+                  )}
                 </div>
+
                 <div className="flex-1 w-full">
                   {isEditing ? (
                     <div className="flex flex-col gap-3 w-full">
@@ -485,10 +525,11 @@ export const StoryDetail: React.FC = () => {
                     </div>
                   ) : (
                     <>
-                      <h2 className="text-xl md:text-4xl [@media(orientation:landscape)]:text-4xl font-seminaria font-bold text-hogwarts-gold mb-2">
+                      {/* Заголовок для десктопа */}
+                      <h2 className="hidden md:block text-4xl font-seminaria font-bold text-hogwarts-gold mb-2">
                         {story ? story.title : 'Сюжет'}
                       </h2>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 w-full">
                         {story?.user_name && (
                           <p className="text-base md:text-lg text-white font-century">
                             Автор: {story.user_name}
@@ -496,7 +537,7 @@ export const StoryDetail: React.FC = () => {
                         )}
                         {story?.authors && (
                           <>
-                            <span className="text-hogwarts-gold/40">•</span>
+                            <span className="hidden md:inline text-hogwarts-gold/40">•</span>
                             <p className="text-sm md:text-base text-hogwarts-gold font-century italic">
                               Соавторы: {story.authors}
                             </p>
@@ -509,7 +550,7 @@ export const StoryDetail: React.FC = () => {
               </div>
 
               {isOwner && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-4 md:mt-0">
                   {!isEditing && (
                      <button
                        type="button"
@@ -537,6 +578,25 @@ export const StoryDetail: React.FC = () => {
             </div>
           </div>
 
+          {/* Навигация по частям */}
+          {segments.length > 1 && (
+            <div className="mb-8 px-4 md:px-10 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] md:text-xs font-nexa uppercase tracking-wider text-hogwarts-gold/80">
+              {segments.map((_, index) => (
+                <React.Fragment key={index}>
+                  <button
+                    onClick={() => scrollToSegment(index)}
+                    className="hover:text-white transition-colors cursor-pointer py-1"
+                  >
+                    Часть {index + 1}
+                  </button>
+                  {index < segments.length - 1 && (
+                    <span className="text-hogwarts-gold/30 self-center">*</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 rounded border border-red-500 bg-red-500/10 text-sm text-red-100 font-century">
               {error}
@@ -558,7 +618,7 @@ export const StoryDetail: React.FC = () => {
             <>
               <div className="space-y-6 mb-10">
                 {segments.map((segment, index) => (
-                  <div key={segment.id} className="relative group">
+                  <div key={segment.id} id={`segment-${index}`} className="relative group scroll-mt-24">
                     {editingSegmentId === segment.id ? (
                       <div className="p-4 md:p-6 rounded-lg bg-black/40 border border-hogwarts-gold space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -724,6 +784,17 @@ export const StoryDetail: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Кнопка "Вверх" */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-8 right-8 z-50 p-3 rounded-full bg-hogwarts-gold text-hogwarts-ink shadow-2xl transition-all duration-300 hover:bg-yellow-400 hover:scale-110 active:scale-95 border-2 border-hogwarts-bronze/50 ${
+          showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
+        }`}
+        title="Наверх"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
     </div>
   );
 };

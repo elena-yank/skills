@@ -24,6 +24,7 @@ import levitGoldSvg from '../assets/levit_gold.svg';
 import necroGoldSvg from '../assets/necro_gold.svg';
 import morfGoldSvg from '../assets/morf_gold.svg';
 import avatarSvg from '../assets/avatar.svg';
+import { inflectName } from '../lib/utils/inflection';
 
 interface Log extends PracticeLog {
   // PracticeLog already has status and wizards from my update to types.ts
@@ -916,7 +917,7 @@ export const SkillDetail: React.FC = () => {
                                     onClick={() => navigate(`/u/${username}/stories`)}
                                     className="px-3 py-1 rounded-full bg-black/40 border border-hogwarts-gold/60 text-xs md:text-sm text-hogwarts-gold hover:bg-hogwarts-gold hover:text-hogwarts-ink font-nexa uppercase tracking-wide transition-colors"
                                 >
-                                    Сюжеты {username.replace(/_/g, ' ')}
+                                    Сюжеты {inflectName(username.replace(/_/g, ' '))}
                                 </button>
                             )}
                         </div>

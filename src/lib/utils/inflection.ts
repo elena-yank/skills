@@ -7,7 +7,14 @@ import petrovich from 'petrovich';
 export function inflectName(fullName: string): string {
   if (!fullName || fullName.trim() === '') return fullName;
 
-  const parts = fullName.trim().split(/\s+/);
+  const trimmedName = fullName.trim();
+  
+  // Специальное требование для пользователя "Святая Мать"
+  if (trimmedName.toLowerCase() === 'святая мать') {
+    return 'Святой Матери';
+  }
+
+  const parts = trimmedName.split(/\s+/);
   
   let firstName = '';
   let lastName = '';
