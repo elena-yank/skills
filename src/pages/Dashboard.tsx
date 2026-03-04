@@ -14,8 +14,9 @@ import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
-import textSvg from '../assets/text.svg';
-import addSvg from '../assets/add.svg';
+import schyotchikSvg from '../assets/schyotchik.svg';
+import addSvg from '../assets/app_14577552.svg';
+import avatarSvg from '../assets/avatar.svg';
 
 export const Dashboard: React.FC = () => {
   const { user, skills, fetchSkills, signOut, addPracticeLog, isLoading } = useStore();
@@ -339,13 +340,13 @@ export const Dashboard: React.FC = () => {
             <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 md:gap-6 text-center md:text-left [@media(orientation:landscape)]:text-left">
               <div className="relative">
                 <div 
-                    className={`w-12 h-12 md:w-16 md:h-16 bg-hogwarts-blue rounded-full flex items-center justify-center border-2 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
+                    className={`w-12 h-12 md:w-16 md:h-16 flex items-center justify-center shrink-0 overflow-hidden relative ${user?.avatar_url ? 'bg-hogwarts-blue rounded-full border-2 border-hogwarts-gold shadow-lg' : ''} ${!showAdminInterface ? 'cursor-pointer group' : ''}`}
                     onClick={!showAdminInterface ? handleAvatarClick : undefined}
                 >
                   {user?.avatar_url ? (
                       <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
-                      <GraduationCap className="w-8 h-8" />
+                      <img src={avatarSvg} alt="Default Avatar" className="w-full h-full object-contain" />
                   )}
                   
                   {!showAdminInterface && (
@@ -392,7 +393,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-2 md:gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                   <p className="text-white text-sm md:text-lg font-century font-normal">
-                    Добро пожаловать, {user?.name || 'Волшебник'}
+                    Добро пожаловать, <span className="text-hogwarts-gold">{user?.name || 'Волшебник'}</span>
                   </p>
                 </div>
                 <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 mt-1 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
@@ -636,15 +637,15 @@ export const Dashboard: React.FC = () => {
                             ) : (
                             <>
                                 <div className="flex items-center justify-center gap-3 w-full mt-0 md:mt-0">
-                                    <div className="relative shrink-0">
+                                    <div className="relative shrink-0 mr-4">
                                         <img
-                                            src={textSvg}
+                                            src={schyotchikSvg}
                                             alt="Количество постов"
-                                            className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-[0_0_4px_rgba(0,0,0,0.45)]"
+                                            className="w-8 h-8 md:w-11 md:h-11 object-contain"
                                         />
                                         <span
-                                            className="absolute left-1/2 top-[78%] md:top-[78%] -translate-x-1/2 -translate-y-1/2 text-[8px] md:text-[10px] text-hogwarts-parchment leading-none drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
-                                            style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
+                                            className="absolute left-[80%] top-[60%] -translate-y-1/2 text-[12px] md:text-[16px] text-[#740001] leading-none font-bold"
+                                            style={{ fontFamily: 'Lumos' }}
                                         >
                                             {skill.totalPosts ?? 0}
                                         </span>

@@ -17,6 +17,7 @@ import legilimentRedSvg from '../assets/legiliment_red.svg';
 import occlumRedSvg from '../assets/occlum_red.svg';
 import levitRedSvg from '../assets/levit_red.svg';
 import necroRedSvg from '../assets/necro_red.svg';
+import morfRedSvg from '../assets/morf_red.svg';
 
 interface SkillInfoModalProps {
   isOpen: boolean;
@@ -269,6 +270,13 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
                 <img 
                     src={necroRedSvg} 
                     alt="Necromancy" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
+                />
+            )}
+            {title === 'Метаморфомагия' && (
+                <img 
+                    src={morfRedSvg} 
+                    alt="Metamorphmagy" 
                     className="w-12 h-12 md:w-16 md:h-16 object-cover object-right select-none"
                 />
             )}

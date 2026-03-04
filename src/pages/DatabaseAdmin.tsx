@@ -361,7 +361,7 @@ export const DatabaseAdmin: React.FC = () => {
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                               <div>
                                 <h3 className="font-bold text-lg text-hogwarts-ink flex items-center gap-2">
-                                  {request.user_name}
+                                  <span className="text-hogwarts-gold">{request.user_name}</span>
                                   <span className="text-sm font-normal text-gray-500">подал заявку на</span>
                                   <span className="text-hogwarts-blue">"{request.requested_race}"</span>
                                 </h3>
@@ -503,7 +503,7 @@ export const DatabaseAdmin: React.FC = () => {
             <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl animate-in fade-in zoom-in-95">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Удаление пользователя</h3>
               <p className="text-gray-600 mb-6">
-                Вы уверены, что хотите удалить волшебника <strong>{deleteConfirmation.userName}</strong>? 
+                Вы уверены, что хотите удалить волшебника <strong className="text-hogwarts-gold">{deleteConfirmation.userName}</strong>? 
                 Это действие необратимо и приведет к удалению всех связанных данных.
               </p>
               <div className="flex justify-end gap-3">
@@ -581,7 +581,7 @@ export const DatabaseAdmin: React.FC = () => {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-lg p-6 max-w-2xl w-full shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-900">Права доступа: {permissionModal.user?.name}</h3>
+                        <h3 className="text-xl font-bold text-gray-900">Права доступа: <span className="text-hogwarts-gold">{permissionModal.user?.name}</span></h3>
                         <button onClick={() => setPermissionModal(prev => ({ ...prev, isOpen: false }))}>
                             <X className="w-6 h-6 text-gray-500 hover:text-gray-700" />
                         </button>
@@ -708,7 +708,7 @@ export const DatabaseAdmin: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center justify-between gap-4 group w-full max-w-xs">
-                            <span className="truncate" title={u.name}>{u.name}</span>
+                            <span className="truncate text-hogwarts-gold" title={u.name}>{u.name}</span>
                             <button
                                 onClick={() => startEditingName(u)}
                                 className="p-1 text-hogwarts-gold hover:text-hogwarts-red transition-colors shrink-0"

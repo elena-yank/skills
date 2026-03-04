@@ -47,7 +47,7 @@ export const GrantSkillModal: React.FC<GrantSkillModalProps> = ({
                 </h2>
                 
                 <p className="mb-4 text-hogwarts-ink font-serif text-center">
-                    Вы собираетесь выдать навык <strong>{skillName}</strong> пользователю <strong>{userName}</strong>.
+                    Вы собираетесь выдать навык <strong>{skillName}</strong> пользователю <strong className="text-hogwarts-gold">{userName}</strong>.
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">

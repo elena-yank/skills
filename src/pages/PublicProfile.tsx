@@ -13,6 +13,7 @@ import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
 import frameSvg from '../assets/frame.svg';
 import storyIcon from '../assets/story.svg';
+import avatarSvg from '../assets/avatar.svg';
 import gryffindorEmblem from '../assets/gryffindor.svg';
 
 interface Skill {
@@ -343,7 +344,7 @@ export const PublicProfile: React.FC = () => {
 
                 <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row gap-4 md:gap-6 items-center px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
                     <div className="relative">
-                        <div className="w-16 h-16 md:w-24 md:h-24 [@media(orientation:landscape)]:w-24 [@media(orientation:landscape)]:h-24 bg-hogwarts-blue rounded-full flex items-center justify-center border-4 border-hogwarts-gold shadow-lg text-hogwarts-gold shrink-0 overflow-hidden relative">
+                        <div className={`w-16 h-16 md:w-24 md:h-24 [@media(orientation:landscape)]:w-24 [@media(orientation:landscape)]:h-24 flex items-center justify-center shrink-0 overflow-hidden relative ${user?.avatar_url ? 'bg-hogwarts-blue rounded-full border-4 border-hogwarts-gold shadow-lg' : ''}`}>
                             {user?.avatar_url ? (
                                 <img 
                                     src={user.avatar_url} 
@@ -352,7 +353,7 @@ export const PublicProfile: React.FC = () => {
                                     onClick={() => setShowAvatarModal(true)}
                                 />
                             ) : (
-                                <GraduationCap className="w-8 h-8 md:w-12 md:h-12" />
+                                <img src={avatarSvg} alt="Default Avatar" className="w-full h-full object-contain" />
                             )}
                         </div>
                         {user?.avatar_url && (

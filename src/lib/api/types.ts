@@ -21,7 +21,7 @@ export interface PracticeLog {
   created_at: string;
   status: 'pending' | 'approved' | 'rejected' | 'exam_passed' | 'study_completed';
   type?: 'practice' | 'exam' | 'application' | 'completion_request';
-  wizards?: { name: string; avatar_url?: string }; // Joined user data
+  wizards?: { name: string; avatar_url?: string; age?: string }; // Joined user data
   moderator_approval_id?: string;
   moderator_approved_at?: string;
   moderator_proposed_status?: 'approved' | 'exam_passed' | 'study_completed';
@@ -72,6 +72,7 @@ export interface StorySegment {
   story_id: string;
   content: string;
   link?: string;
+  author?: string;
   position: number;
   created_at: string;
 }
@@ -80,6 +81,7 @@ export interface Story {
   id: string;
   user_id: string;
   title: string;
+  authors?: string;
   created_at: string;
   updated_at: string;
   user_name?: string;
@@ -111,9 +113,9 @@ export interface ApiClient {
   stories: {
     list: (userId: string) => Promise<Story[]>;
     get: (id: string) => Promise<Story>;
-    create: (data: { user_id: string; title: string; segments: { content: string; link?: string }[] }) => Promise<Story>;
-    update: (id: string, data: { user_id: string; title: string; segments: { content: string; link?: string }[] }) => Promise<Story>;
-    appendSegments: (id: string, userId: string, segments: { content: string; link?: string }[]) => Promise<Story>;
+    create: (data: { user_id: string; title: string; authors?: string; segments: { content: string; link?: string; author?: string }[] }) => Promise<Story>;
+    update: (id: string, data: { user_id: string; title: string; authors?: string; segments: { content: string; link?: string; author?: string }[] }) => Promise<Story>;
+    appendSegments: (id: string, userId: string, segments: { content: string; link?: string; author?: string }[]) => Promise<Story>;
     delete: (id: string, userId: string) => Promise<void>;
   };
   logs: {

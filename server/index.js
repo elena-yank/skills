@@ -154,6 +154,7 @@ const runMigrations = async () => {
           id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
           user_id UUID NOT NULL REFERENCES wizards(id) ON DELETE CASCADE,
           title TEXT NOT NULL,
+          authors TEXT,
           created_at TIMESTAMPTZ DEFAULT NOW(),
           updated_at TIMESTAMPTZ DEFAULT NOW()
         )
@@ -165,10 +166,30 @@ const runMigrations = async () => {
           story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
           content TEXT NOT NULL,
           link TEXT,
+          author TEXT,
           position INTEGER NOT NULL,
           created_at TIMESTAMPTZ DEFAULT NOW()
         )
       `);
+
+      // Migration for existing tables
+      const storiesColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'stories' AND column_name = 'authors'
+      `);
+      if (storiesColumns.rows.length === 0) {
+        await client.query('ALTER TABLE stories ADD COLUMN authors TEXT');
+      }
+
+      const segmentColumns = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'story_segments' AND column_name = 'author'
+      `);
+      if (segmentColumns.rows.length === 0) {
+        await client.query('ALTER TABLE story_segments ADD COLUMN author TEXT');
+      }
 
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_stories_user_id ON stories(user_id)
@@ -407,7 +428,7 @@ app.get('/api/admin/logs', async (req, res) => {
     const { skill_name, status } = req.query;
     try {
         let query = `
-            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar,
+            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar, w.age as wizard_age,
                    mw.name as moderator_name,
                    (
                        SELECT string_agg(wm.name, ', ' ORDER BY wm.name)
@@ -458,7 +479,8 @@ app.get('/api/admin/logs', async (req, res) => {
             ...row,
             wizards: { 
                 name: row.wizard_name,
-                avatar_url: row.wizard_avatar
+                avatar_url: row.wizard_avatar,
+                age: row.wizard_age
             },
             moderator_name: row.moderator_name
         }));
@@ -725,7 +747,7 @@ app.get('/api/stories', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id is required' });
     try {
         const result = await pool.query(
-            'SELECT id, user_id, title, created_at, updated_at FROM stories WHERE user_id = $1 ORDER BY created_at DESC',
+            'SELECT id, user_id, title, authors, created_at, updated_at FROM stories WHERE user_id = $1 ORDER BY created_at DESC',
             [user_id]
         );
         res.json(result.rows);
@@ -739,7 +761,7 @@ app.get('/api/stories/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const storyResult = await pool.query(
-            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+            `SELECT s.id, s.user_id, s.title, s.authors, s.created_at, s.updated_at, w.name as user_name
              FROM stories s
              JOIN wizards w ON s.user_id = w.id
              WHERE s.id = $1`,
@@ -750,7 +772,7 @@ app.get('/api/stories/:id', async (req, res) => {
         }
         const story = storyResult.rows[0];
         const segmentsResult = await pool.query(
-            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            'SELECT id, story_id, content, link, author, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
             [id]
         );
         res.json({ ...story, segments: segmentsResult.rows });
@@ -761,7 +783,7 @@ app.get('/api/stories/:id', async (req, res) => {
 });
 
 app.post('/api/stories', async (req, res) => {
-    const { user_id, title, segments } = req.body;
+    const { user_id, title, authors, segments } = req.body;
     if (!user_id || !title || !Array.isArray(segments) || segments.length === 0) {
         return res.status(400).json({ error: 'user_id, title and segments are required' });
     }
@@ -769,23 +791,24 @@ app.post('/api/stories', async (req, res) => {
     try {
         await client.query('BEGIN');
         const storyResult = await client.query(
-            'INSERT INTO stories (user_id, title) VALUES ($1, $2) RETURNING id, user_id, title, created_at, updated_at',
-            [user_id, title]
+            'INSERT INTO stories (user_id, title, authors) VALUES ($1, $2, $3) RETURNING id, user_id, title, authors, created_at, updated_at',
+            [user_id, title, authors]
         );
         const story = storyResult.rows[0];
         let position = 1;
         for (const segment of segments) {
             const content = typeof segment.content === 'string' ? segment.content.trim() : '';
             const link = segment.link || null;
+            const author = segment.author || null;
             if (!content) continue;
             await client.query(
-                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
-                [story.id, content, link, position]
+                'INSERT INTO story_segments (story_id, content, link, author, position) VALUES ($1, $2, $3, $4, $5)',
+                [story.id, content, link, author, position]
             );
             position += 1;
         }
         const segmentsResult = await client.query(
-            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            'SELECT id, story_id, content, link, author, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
             [story.id]
         );
         await client.query('COMMIT');
@@ -818,18 +841,21 @@ app.patch('/api/stories/:id', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(403).json({ error: 'Not authorized' });
         }
+        
         const posRes = await client.query(
             'SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM story_segments WHERE story_id = $1',
             [id]
         );
         let position = posRes.rows[0].next_pos || 1;
+
         for (const segment of segments) {
             const content = typeof segment.content === 'string' ? segment.content.trim() : '';
             const link = segment.link || null;
+            const author = segment.author || null;
             if (!content) continue;
             await client.query(
-                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
-                [id, content, link, position]
+                'INSERT INTO story_segments (story_id, content, link, author, position) VALUES ($1, $2, $3, $4, $5)',
+                [id, content, link, author, position]
             );
             position += 1;
         }
@@ -838,14 +864,14 @@ app.patch('/api/stories/:id', async (req, res) => {
             [id]
         );
         const storyResult = await client.query(
-            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+            `SELECT s.id, s.user_id, s.title, s.authors, s.created_at, s.updated_at, w.name as user_name
              FROM stories s
              JOIN wizards w ON s.user_id = w.id
              WHERE s.id = $1`,
             [id]
         );
         const segmentsResult = await client.query(
-            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            'SELECT id, story_id, content, link, author, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
             [id]
         );
         await client.query('COMMIT');
@@ -861,7 +887,7 @@ app.patch('/api/stories/:id', async (req, res) => {
 
 app.put('/api/stories/:id', async (req, res) => {
     const { id } = req.params;
-    const { user_id, title, segments } = req.body;
+    const { user_id, title, authors, segments } = req.body;
     if (!user_id || !title || !Array.isArray(segments) || segments.length === 0) {
         return res.status(400).json({ error: 'user_id, title and segments are required' });
     }
@@ -878,28 +904,29 @@ app.put('/api/stories/:id', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(403).json({ error: 'Not authorized' });
         }
-        await client.query('UPDATE stories SET title = $1, updated_at = NOW() WHERE id = $2', [title, id]);
+        await client.query('UPDATE stories SET title = $1, authors = $2, updated_at = NOW() WHERE id = $3', [title, authors, id]);
         await client.query('DELETE FROM story_segments WHERE story_id = $1', [id]);
         let position = 1;
         for (const segment of segments) {
             const content = typeof segment.content === 'string' ? segment.content.trim() : '';
             const link = segment.link || null;
+            const author = segment.author || null;
             if (!content) continue;
             await client.query(
-                'INSERT INTO story_segments (story_id, content, link, position) VALUES ($1, $2, $3, $4)',
-                [id, content, link, position]
+                'INSERT INTO story_segments (story_id, content, link, author, position) VALUES ($1, $2, $3, $4, $5)',
+                [id, content, link, author, position]
             );
             position += 1;
         }
         const storyResult = await client.query(
-            `SELECT s.id, s.user_id, s.title, s.created_at, s.updated_at, w.name as user_name
+            `SELECT s.id, s.user_id, s.title, s.authors, s.created_at, s.updated_at, w.name as user_name
              FROM stories s
              JOIN wizards w ON s.user_id = w.id
              WHERE s.id = $1`,
             [id]
         );
         const segmentsResult = await client.query(
-            'SELECT id, story_id, content, link, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
+            'SELECT id, story_id, content, link, author, position, created_at FROM story_segments WHERE story_id = $1 ORDER BY position ASC, created_at ASC',
             [id]
         );
         await client.query('COMMIT');
@@ -978,6 +1005,15 @@ app.patch('/api/logs/:id/status', async (req, res) => {
             return res.status(403).json({ error: 'Not authorized' });
         }
 
+        // Fetch uploader info to check age
+        const uploaderRes = await pool.query('SELECT age FROM wizards WHERE id = $1', [log.user_id]);
+        const uploaderAge = uploaderRes.rows[0]?.age;
+        const isHogwartsAge = (age) => {
+            if (!age) return false;
+            const normalized = age.toLowerCase();
+            return normalized === "хогвартс" || normalized === "школа";
+        };
+
         // Check if skill requires moderation (has any moderator assigned)
         const modCheck = await pool.query(
             "SELECT 1 FROM wizards WHERE role = 'moderator' AND $1 = ANY(managed_skills) LIMIT 1",
@@ -997,7 +1033,10 @@ app.patch('/api/logs/:id/status', async (req, res) => {
                     newStatus = 'pending'; 
                 } else if (isGlobalAdmin) {
                     // Admin approving: check if moderator approved
-                    if (!log.moderator_approval_id) {
+                    // SPECIAL BYPASS: if uploader is from Hogwarts and skill is NOT Transgression, admin can approve directly
+                    const canBypassModerator = isHogwartsAge(uploaderAge) && log.skill_name !== 'Трансгрессия';
+
+                    if (!log.moderator_approval_id && !canBypassModerator) {
                          return res.status(400).json({ error: 'Требуется предварительное одобрение экзаменатора (полу-администратора).' });
                     }
                 }

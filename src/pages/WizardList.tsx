@@ -8,7 +8,8 @@ import gryffindorEmblem from '../assets/gryffindor.svg';
 import ravenclawEmblem from '../assets/ravenclaw.svg';
 import hufflepuffEmblem from '../assets/hufflepuff.svg';
 import slytherinEmblem from '../assets/slytherin.svg';
-import villageEmblem from '../assets/village.svg';
+import mdEmblem from '../assets/md.svg';
+import avatarSvg from '../assets/avatar.svg';
 import { User as UserType } from '../lib/api/types';
 import { useStore } from '../store';
 import { ImageModal } from '../components/ImageModal';
@@ -85,7 +86,7 @@ export const WizardList: React.FC = () => {
           <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-4 py-6 md:px-12 md:py-8">
             <div className="flex items-center gap-4">
-                <User className="w-8 h-8 md:w-10 md:h-10 text-hogwarts-gold shrink-0" />
+                <img src={avatarSvg} alt="Wizards Icon" className="w-10 h-10 md:w-14 md:h-14 shrink-0" />
                 <div>
                     <h1 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-normal">
                         Список волшебников
@@ -127,9 +128,9 @@ export const WizardList: React.FC = () => {
               const isRavenclaw = wizard.faculty === 'Когтевран';
               const isHufflepuff = wizard.faculty === 'Пуффендуй';
               const isSlytherin = wizard.faculty === 'Слизерин';
-              const isVillage = wizard.age === 'МД';
+              const isMD = wizard.age === 'МД';
               const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
-              const hasSpecialStyle = hasFaculty || isVillage;
+              const hasSpecialStyle = hasFaculty || isMD;
               
               return (
                 <div 
@@ -144,18 +145,20 @@ export const WizardList: React.FC = () => {
                           ? 'bg-[#ecb939] border-hogwarts-ink hover:shadow-[0_0_20px_rgba(0,0,0,0.2)]'
                           : isSlytherin
                             ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                            : isVillage
-                              ? 'bg-[#b7904e] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(183,144,78,0.3)]'
+                            : isMD
+                              ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
                               : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
                 >
                   {/* Glass effect gradient for Special Styles */}
                   {hasSpecialStyle && (
                     <>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none z-0"></div>
-                      {/* Animated Shimmer */}
-                      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-                        <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-glass-shimmer"></div>
-                      </div>
+                      <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 
+                         ${isMD ? 'from-white/100' : 'from-white/10'}`}></div>
+                       {/* Animated Shimmer */}
+                       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+                         <div className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer
+                           ${isMD ? 'via-white/100' : 'via-white/20'}`}></div>
+                       </div>
                     </>
                   )}
 
@@ -172,16 +175,16 @@ export const WizardList: React.FC = () => {
                       <img src={hufflepuffEmblem} alt="Hufflepuff" className="w-32 h-32 object-contain" />
                     ) : isSlytherin ? (
                       <img src={slytherinEmblem} alt="Slytherin" className="w-32 h-32 object-contain" />
-                    ) : isVillage ? (
-                      <img src={villageEmblem} alt="Village" className="w-32 h-32 object-contain opacity-20 group-hover:opacity-40" />
+                    ) : isMD ? (
+                      <img src={mdEmblem} alt="MD" className="w-32 h-32 object-contain opacity-70 group-hover:opacity-100" />
                     ) : (
                       <User className="w-12 h-12 text-hogwarts-blue" />
                     )}
                   </div>
 
                   <div className="flex items-center gap-4 mb-2 relative z-20">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-magical text-xl border overflow-hidden shrink-0
-                      ${hasSpecialStyle ? (isHufflepuff || isVillage ? 'bg-black/5 border-hogwarts-bronze text-hogwarts-ink' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold'}`}>
+                    <div className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden relative
+                      ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
                         {wizard.avatar_url ? (
                             <img 
                                 src={wizard.avatar_url} 
@@ -193,14 +196,14 @@ export const WizardList: React.FC = () => {
                                 }}
                             />
                         ) : (
-                            wizard.name.charAt(0)
+                            <img src={avatarSvg} alt="Default Avatar" className="w-full h-full object-contain" />
                         )}
                     </div>
                     <div className="flex flex-col gap-1">
                         <h3 className={`text-xl font-bold font-seminaria transition-colors
                           ${hasSpecialStyle 
-                            ? isHufflepuff || isVillage
-                              ? 'text-hogwarts-ink group-hover:text-black' 
+                            ? isHufflepuff || isMD
+                              ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
                               : isSlytherin || isRavenclaw
                                 ? 'text-white group-hover:text-hogwarts-gold'
                                 : 'text-hogwarts-gold group-hover:text-white' 
@@ -210,7 +213,7 @@ export const WizardList: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-2">
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                               hasSpecialStyle 
-                                ? isHufflepuff || isVillage
+                                ? isHufflepuff || isMD
                                   ? 'bg-black/5 text-hogwarts-ink border border-black/10'
                                   : 'bg-white/10 text-white border border-white/20' 
                                 : 'bg-hogwarts-blue/10 text-hogwarts-blue border border-hogwarts-blue/20'
@@ -220,7 +223,7 @@ export const WizardList: React.FC = () => {
                              {wizard.age && (
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                                   hasSpecialStyle 
-                                    ? isHufflepuff || isVillage
+                                    ? isHufflepuff || isMD
                                       ? 'bg-black/5 text-hogwarts-ink border border-black/10'
                                       : 'bg-white/10 text-white border border-white/20' 
                                     : 'bg-hogwarts-bronze/10 text-hogwarts-bronze border border-hogwarts-bronze/20'

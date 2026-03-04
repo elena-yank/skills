@@ -22,6 +22,8 @@ import legilimentGoldSvg from '../assets/legiliment_gold.svg';
 import occlumGoldSvg from '../assets/occlum_gold.svg';
 import levitGoldSvg from '../assets/levit_gold.svg';
 import necroGoldSvg from '../assets/necro_gold.svg';
+import morfGoldSvg from '../assets/morf_gold.svg';
+import avatarSvg from '../assets/avatar.svg';
 
 interface Log extends PracticeLog {
   // PracticeLog already has status and wizards from my update to types.ts
@@ -242,8 +244,8 @@ const LogItem: React.FC<{
 
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-40 gap-4 md:gap-0">
         <div className="flex flex-col gap-1 w-full md:w-auto">
-            <div className="md:hidden flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif">
-                {(isExamLog || isExamSkillPage) && (
+            <div className="md:hidden flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif flex-wrap">
+                {isExamLog && (
                     <span className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
                         Экзамен
                     </span>
@@ -252,6 +254,23 @@ const LogItem: React.FC<{
                     <span className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-xs font-bold border border-hogwarts-green/30 font-serif">
                         {log.word_count} слов
                     </span>
+                )}
+                {typeof indexInTotal === 'number' && typeof totalNonRejected === 'number' && (
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-hogwarts-ink/5 text-hogwarts-ink tracking-wide">
+                        {indexInTotal} из {totalNonRejected}
+                    </span>
+                )}
+                {log.post_link && log.status !== 'rejected' && (
+                    <a 
+                    href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1 text-hogwarts-gold hover:text-yellow-400 visited:text-hogwarts-gold transition-colors underline decoration-hogwarts-gold/40 underline-offset-4 text-xs"
+                    title="Открыть ссылку"
+                    >
+                    <Feather className="w-3 h-3" />
+                    Ссылка
+                    </a>
                 )}
                 {(isOwner || canModerate) && (
                     <button 
@@ -279,7 +298,7 @@ const LogItem: React.FC<{
                 </div>
             ) : (
                 <>
-                    {(isExamLog || isExamSkillPage) && (
+                    {isExamLog && (
                         <span className="hidden md:inline-flex px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
                             Экзамен
                         </span>
@@ -293,7 +312,7 @@ const LogItem: React.FC<{
                         minute: '2-digit'
                     })}
                     {typeof indexInTotal === 'number' && typeof totalNonRejected === 'number' && (
-                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs md:text-sm bg-hogwarts-ink/5 text-hogwarts-ink tracking-wide">
+                        <span className="hidden md:inline-flex ml-2 px-2 py-0.5 rounded-full text-xs md:text-sm bg-hogwarts-ink/5 text-hogwarts-ink tracking-wide">
                             {indexInTotal} из {totalNonRejected}
                         </span>
                     )}
@@ -305,7 +324,7 @@ const LogItem: React.FC<{
                 href={log.post_link.startsWith('http') ? log.post_link : `https://${log.post_link}`}
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="flex items-center gap-1 text-hogwarts-blue hover:text-hogwarts-red transition-colors w-full md:w-auto"
+                className="hidden md:flex items-center gap-1 text-hogwarts-gold hover:text-yellow-400 visited:text-hogwarts-gold transition-colors w-full md:w-auto underline decoration-hogwarts-gold/40 underline-offset-4"
                 title="Открыть ссылку"
                 >
                 <Feather className="w-4 h-4" />
@@ -331,9 +350,9 @@ const LogItem: React.FC<{
                             />
                         </>
                     ) : (
-                        <UserIcon className="w-4 h-4" />
+                        <img src={avatarSvg} alt="Default Avatar" className="w-8 h-8 object-contain" />
                     )}
-                    {log.wizards.name}
+                    <span className="text-hogwarts-red">{log.wizards.name}</span>
                 </div>
             )}
         </div>
@@ -451,15 +470,17 @@ const LogItem: React.FC<{
         {canModerate && log.status === 'pending' && (
             <div className="flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
                 {/* Если админ и есть назначенные модераторы, но нет одобрения */}
-                {isGlobalAdmin && log.assigned_moderators && !log.moderator_approval_id ? (
+                {/* СПЕЦИАЛЬНЫЙ ОБХОД: если загрузивший из Хогвартса и навык НЕ Трансгрессия, админ может одобрить сразу */}
+                {isGlobalAdmin && log.assigned_moderators && !log.moderator_approval_id && 
+                 !((log.wizards?.age?.toLowerCase() === 'хогвартс' || log.wizards?.age?.toLowerCase() === 'школа') && log.skill_name !== 'Трансгрессия') ? (
                      <div className="text-hogwarts-ink/60 font-bold font-serif text-center sm:text-right">
-                        Ожидается одобрение экзаменатора: {log.assigned_moderators}
+                        Ожидается одобрение экзаменатора: <span className="text-hogwarts-gold">{log.assigned_moderators}</span>
                      </div>
                 ) : (
                     <>
                         {log.moderator_name && (
                             <div className="text-hogwarts-gold text-sm font-bold text-center sm:text-right">
-                                Одобрено экзаменатором: {log.moderator_name}
+                                Одобрено экзаменатором: <span className="text-hogwarts-gold">{log.moderator_name}</span>
                             </div>
                         )}
                         <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
@@ -586,7 +607,7 @@ export const SkillDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user, deletePracticeLog, updateLogStatus, fetchSkills } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('asc');
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [applicationLog, setApplicationLog] = useState<Log | null>(null);
   
@@ -742,9 +763,14 @@ export const SkillDetail: React.FC = () => {
 
   const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
   const visibleLogs = sortedLogs.filter(log => log.type !== 'completion_request');
-  const nonRejectedLogs = visibleLogs.filter(log => log.status !== 'rejected');
-  const totalNonRejected = nonRejectedLogs.length;
-  const logIndexMap = new Map(nonRejectedLogs.map((log, index) => [log.id, index + 1]));
+  
+  // Нумерация постов всегда должна быть хронологической (№1 - самый ранний)
+  const nonRejectedForIndexing = [...logs]
+    .filter(log => log.type !== 'completion_request' && log.status !== 'rejected')
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+  const totalNonRejected = nonRejectedForIndexing.length;
+  const logIndexMap = new Map(nonRejectedForIndexing.map((log, index) => [log.id, index + 1]));
 
   return (
     <div className="min-h-screen relative">
@@ -856,6 +882,12 @@ export const SkillDetail: React.FC = () => {
                             alt="Necromancy" 
                             className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
                         />
+                    ) : decodedSkillName === 'Метаморфомагия' ? (
+                        <img 
+                            src={morfGoldSvg} 
+                            alt="Metamorphmagy" 
+                            className="w-12 h-12 md:w-16 md:h-16 shrink-0 object-cover object-right select-none"
+                        />
                     ) : (
                         <Feather className="w-12 h-12 shrink-0" />
                     )}
@@ -874,9 +906,9 @@ export const SkillDetail: React.FC = () => {
                                 <button
                                     onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                                     className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-hogwarts-gold hover:text-white"
-                                    title={sortOrder === 'desc' ? "Сначала новые" : "Сначала старые"}
+                                    title={sortOrder === 'asc' ? "Сначала старые (по умолчанию)" : "Сначала новые"}
                                 >
-                                    {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+                                    {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
                                 </button>
                             )}
                             {!isAdmin && username && (

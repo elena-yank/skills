@@ -129,7 +129,7 @@ export const RaceRequestModal: React.FC<RaceRequestModalProps> = ({ requestId, o
                             </div>
                             <div className="min-w-0">
                                 <p className="text-[10px] font-bold text-hogwarts-ink/60 uppercase font-nexa">Отправитель</p>
-                                <p className="text-sm md:text-lg font-serif font-bold text-hogwarts-ink truncate leading-tight landscape-compact-text">{request.user_name || 'Волшебник'}</p>
+                                <p className="text-sm md:text-lg font-serif font-bold text-hogwarts-gold truncate leading-tight landscape-compact-text">{request.user_name || 'Волшебник'}</p>
                             </div>
                         </div>
 

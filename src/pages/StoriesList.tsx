@@ -8,10 +8,12 @@ import scrollImg from '../assets/scroll.png';
 import storyIcon from '../assets/story.svg';
 import { useStore } from '../store';
 import { Plus, ArrowLeft, Trash2, ExternalLink } from 'lucide-react';
+import { inflectName } from '../lib/utils/inflection';
 
 interface SegmentForm {
   content: string;
   link: string;
+  author: string;
 }
 
 export const StoriesList: React.FC = () => {
@@ -26,11 +28,23 @@ export const StoriesList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
-  const [segments, setSegments] = useState<SegmentForm[]>([{ content: '', link: '' }]);
+  const [authors, setAuthors] = useState('');
+  const [segments, setSegments] = useState<SegmentForm[]>([{ content: '', link: '', author: '' }]);
   const [isSaving, setIsSaving] = useState(false);
 
   const isMyStories = !username;
   const isOwner = isMyStories || (!!user && !!targetUserId && user.id === targetUserId);
+
+  const ownerName = isMyStories ? user?.name : targetUserName;
+
+  // Parse authors string into array for selection
+  const authorsList = [
+    ...(ownerName ? [ownerName] : []),
+    ...authors
+      .split(',')
+      .map(a => a.trim())
+      .filter(a => a.length > 0 && a !== ownerName)
+  ];
 
   useEffect(() => {
     const loadUserAndStories = async () => {
@@ -63,6 +77,11 @@ export const StoriesList: React.FC = () => {
           }
           setTargetUserId(userId);
           setTargetUserName(userName || null);
+          // Set default author if creating my stories
+          if (userName && authors === '') {
+            setAuthors(userName);
+            setSegments(prev => prev.map(seg => ({ ...seg, author: userName })));
+          }
         }
 
         if (!userId) {
@@ -84,7 +103,9 @@ export const StoriesList: React.FC = () => {
   }, [username, user, targetUserId, targetUserName]);
 
   const handleAddSegment = () => {
-    setSegments(prev => [...prev, { content: '', link: '' }]);
+    // Default author for new segment is the first one in the list or the user's name
+    const defaultAuthor = authorsList.length > 0 ? authorsList[0] : (user?.name || '');
+    setSegments(prev => [...prev, { content: '', link: '', author: defaultAuthor }]);
   };
 
   const handleSegmentChange = (index: number, field: keyof SegmentForm, value: string) => {
@@ -95,7 +116,11 @@ export const StoriesList: React.FC = () => {
     if (!user || !targetUserId || user.id !== targetUserId) return;
     const trimmedTitle = title.trim();
     const preparedSegments = segments
-      .map(seg => ({ content: seg.content.trim(), link: seg.link.trim() }))
+      .map(seg => ({ 
+        content: seg.content.trim(), 
+        link: seg.link.trim(),
+        author: seg.author.trim()
+      }))
       .filter(seg => seg.content.length > 0);
 
     if (!trimmedTitle || preparedSegments.length === 0) {
@@ -107,11 +132,13 @@ export const StoriesList: React.FC = () => {
       const created = await api.stories.create({
         user_id: user.id,
         title: trimmedTitle,
+        authors: authors.trim(),
         segments: preparedSegments,
       });
       setStories(prev => [created, ...prev]);
       setTitle('');
-      setSegments([{ content: '', link: '' }]);
+      setAuthors(user.name || '');
+      setSegments([{ content: '', link: '', author: user.name || '' }]);
     } catch (e) {
       setError('Не удалось сохранить сюжет.');
     } finally {
@@ -173,7 +200,7 @@ export const StoriesList: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-xl md:text-4xl [@media(orientation:landscape)]:text-4xl font-seminaria font-bold text-hogwarts-gold mb-1">
-                    {isMyStories ? 'Моя история' : `Сюжеты ${displayName}`}
+                    {isMyStories ? 'Моя история' : `Сюжеты ${inflectName(displayName || '')}`}
                   </h2>
                   <p className="text-base md:text-xl [@media(orientation:landscape)]:text-xl text-white font-century">
                     Заголовки всех сохранённых сюжетов
@@ -197,36 +224,83 @@ export const StoriesList: React.FC = () => {
               </h3>
 
               <div className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    placeholder="Заголовок сюжета"
-                    className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/40 text-white font-century text-sm md:text-base"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-nexa text-hogwarts-gold/80 mb-1 uppercase tracking-wider">
+                      Заголовок сюжета
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      placeholder="Название истории..."
+                      className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/40 text-white font-century text-sm md:text-base focus:outline-none focus:border-hogwarts-gold transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-nexa text-hogwarts-gold/80 mb-1 uppercase tracking-wider">
+                      Соавторы (через запятую)
+                    </label>
+                    <input
+                      type="text"
+                      value={authors}
+                      onChange={e => setAuthors(e.target.value)}
+                      placeholder="Амелия Уизли, Бетти Марлоу..."
+                      className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/40 text-white font-century text-sm md:text-base focus:outline-none focus:border-hogwarts-gold transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-4">
                   {segments.map((segment, index) => (
                     <div
                       key={index}
-                      className="border border-hogwarts-bronze/40 rounded-lg p-3 md:p-4 bg-black/30 space-y-2"
+                      className="border border-hogwarts-bronze/40 rounded-lg p-3 md:p-4 bg-black/30 space-y-3"
                     >
-                      <input
-                        type="text"
-                        value={segment.link}
-                        onChange={e => handleSegmentChange(index, 'link', e.target.value)}
-                        placeholder="Ссылка (необязательно)"
-                        className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/30 text-white font-century text-xs md:text-sm"
-                      />
-                      <textarea
-                        value={segment.content}
-                        onChange={e => handleSegmentChange(index, 'content', e.target.value)}
-                        placeholder="Текст сюжета"
-                        rows={4}
-                        className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/30 text-white font-century text-sm md:text-base resize-none"
-                      />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-nexa text-hogwarts-gold/60 mb-1 uppercase">
+                            Автор этой части
+                          </label>
+                          <select
+                            value={segment.author}
+                            onChange={e => handleSegmentChange(index, 'author', e.target.value)}
+                            className="w-full px-3 py-1.5 rounded border border-hogwarts-bronze/60 bg-black/30 text-white/70 font-century text-xs md:text-sm focus:outline-none focus:border-hogwarts-gold appearance-none"
+                          >
+                            {authorsList.length > 0 ? (
+                              authorsList.map((a, i) => (
+                                <option key={i} value={a} className="bg-white text-hogwarts-red font-bold">{a}</option>
+                              ))
+                            ) : (
+                              <option value="" className="bg-white text-hogwarts-red font-bold">Укажите соавторов выше</option>
+                            )}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-nexa text-hogwarts-gold/60 mb-1 uppercase">
+                            Ссылка на пост (необязательно)
+                          </label>
+                          <input
+                            type="text"
+                            value={segment.link}
+                            onChange={e => handleSegmentChange(index, 'link', e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-3 py-1.5 rounded border border-hogwarts-bronze/60 bg-black/30 text-white font-century text-xs md:text-sm focus:outline-none focus:border-hogwarts-gold"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-nexa text-hogwarts-gold/60 mb-1 uppercase">
+                          Текст
+                        </label>
+                        <textarea
+                          value={segment.content}
+                          onChange={e => handleSegmentChange(index, 'content', e.target.value)}
+                          placeholder="Напишите здесь часть вашего сюжета..."
+                          rows={4}
+                          className="w-full px-3 py-2 rounded border border-hogwarts-bronze/60 bg-black/30 text-white font-century text-sm md:text-base resize-none focus:outline-none focus:border-hogwarts-gold"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -289,10 +363,20 @@ export const StoriesList: React.FC = () => {
                       <h3 className="text-lg md:text-2xl font-seminaria font-bold text-hogwarts-gold mb-1">
                         {story.title}
                       </h3>
-                      <p className="text-xs md:text-sm text-white font-century flex items-center gap-1">
-                        <ExternalLink className="w-3 h-3" />
-                        Открыть сюжет
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs md:text-sm text-white font-century flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3" />
+                          Открыть сюжет
+                        </p>
+                        {story.authors && (
+                          <>
+                            <span className="text-hogwarts-gold/40">•</span>
+                            <p className="text-xs md:text-sm text-hogwarts-gold font-century italic">
+                              Авторы: {story.authors}
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
                     {isOwner && (
                       <button
