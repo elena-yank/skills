@@ -449,16 +449,17 @@ export const StoryDetail: React.FC = () => {
           </button>
 
           <div className="relative mb-8 md:mb-12">
+            <div className="absolute inset-0 bg-black/50 hidden md:block [@media(orientation:landscape)]:block"></div>
             <img
               src={frameSvg}
               alt="Frame"
-              className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
+              className="absolute inset-0 w-full h-full object-fill z-10 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
             />
             <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden [@media(orientation:landscape)]:hidden rounded-lg" />
 
-            <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-start md:items-center gap-4 px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1 w-full">
-                <div className="flex flex-row items-center gap-4 w-full md:w-auto">
+            <div className="relative z-10 flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row justify-between items-center gap-4 px-6 py-6 md:px-14 md:py-8 [@media(orientation:landscape)]:px-12 [@media(orientation:landscape)]:py-8">
+              <div className="flex flex-col md:flex-row items-center gap-4 flex-1 w-full text-center md:text-left">
+                <div className="flex flex-row items-center justify-center md:justify-start gap-4 w-full md:w-auto">
                   <div className="flex items-center justify-center shrink-0">
                     <img
                       src={storyIcon}
@@ -468,7 +469,7 @@ export const StoryDetail: React.FC = () => {
                   </div>
                   {/* Заголовок для мобильной версии рядом с иконкой */}
                   {!isEditing && (
-                    <h2 className="text-xl md:hidden font-seminaria font-bold text-hogwarts-gold leading-tight">
+                    <h2 className="text-xl md:hidden font-seminaria font-bold text-hogwarts-gold leading-tight text-center px-2">
                       {story ? story.title : 'Сюжет'}
                     </h2>
                   )}
@@ -529,16 +530,16 @@ export const StoryDetail: React.FC = () => {
                       <h2 className="hidden md:block text-4xl font-seminaria font-bold text-hogwarts-gold mb-2">
                         {story ? story.title : 'Сюжет'}
                       </h2>
-                      <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 w-full">
+                      <div className="flex flex-col md:flex-row items-center md:items-center gap-1 md:gap-2 w-full">
                         {story?.user_name && (
-                          <p className="text-base md:text-lg text-white font-century">
+                          <p className="text-base md:text-lg text-white font-century text-center md:text-left">
                             Автор: {story.user_name}
                           </p>
                         )}
                         {story?.authors && (
                           <>
                             <span className="hidden md:inline text-hogwarts-gold/40">•</span>
-                            <p className="text-sm md:text-base text-hogwarts-gold font-century italic">
+                            <p className="text-sm md:text-base text-hogwarts-gold font-century italic text-center md:text-left">
                               Соавторы: {story.authors}
                             </p>
                           </>

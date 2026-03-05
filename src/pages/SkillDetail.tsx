@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen } from 'lucide-react';
+import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen, Upload } from 'lucide-react';
 import { useStore } from '../store';
 import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
@@ -24,7 +24,6 @@ import levitGoldSvg from '../assets/levit_gold.svg';
 import necroGoldSvg from '../assets/necro_gold.svg';
 import morfGoldSvg from '../assets/morf_gold.svg';
 import avatarSvg from '../assets/avatar.svg';
-import { inflectName } from '../lib/utils/inflection';
 
 interface Log extends PracticeLog {
   // PracticeLog already has status and wizards from my update to types.ts
@@ -608,9 +607,11 @@ export const SkillDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user, deletePracticeLog, updateLogStatus, fetchSkills } = useStore();
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
+  const [targetUserName, setTargetUserName] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('asc');
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [applicationLog, setApplicationLog] = useState<Log | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   const [showCompletionRejectModal, setShowCompletionRejectModal] = useState(false);
   const [completionRejectionReason, setCompletionRejectionReason] = useState('');
@@ -649,6 +650,7 @@ export const SkillDetail: React.FC = () => {
                  const userData = await api.auth.getUserByName(username.replace(/_/g, ' '));
                  if (!userData) throw new Error('Wizard not found');
                  userIdToFetch = userData.id;
+                 setTargetUserName(userData.name);
             }
             
             if (!userIdToFetch) {
@@ -745,6 +747,211 @@ export const SkillDetail: React.FC = () => {
       setCompletionRejectionReason('');
   };
 
+  const escapeXml = (value: string) => {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const createZipBlob = (files: { name: string; content: string }[]) => {
+    const encoder = new TextEncoder();
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        let c = i;
+        for (let k = 0; k < 8; k += 1) {
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    const crc32 = (data: Uint8Array) => {
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < data.length; i += 1) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ data[i]) & 0xFF];
+      }
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    };
+
+    const fileParts: Uint8Array[] = [];
+    const centralParts: Uint8Array[] = [];
+    let offset = 0;
+
+    files.forEach(file => {
+      const nameBytes = encoder.encode(file.name);
+      const dataBytes = encoder.encode(file.content);
+      const crc = crc32(dataBytes);
+
+      const localHeader = new Uint8Array(30 + nameBytes.length);
+      const localView = new DataView(localHeader.buffer);
+      localView.setUint32(0, 0x04034b50, true);
+      localView.setUint16(4, 20, true);
+      localView.setUint16(6, 0, true);
+      localView.setUint16(8, 0, true);
+      localView.setUint16(10, 0, true);
+      localView.setUint16(12, 0, true);
+      localView.setUint32(14, crc, true);
+      localView.setUint32(18, dataBytes.length, true);
+      localView.setUint32(22, dataBytes.length, true);
+      localView.setUint16(26, nameBytes.length, true);
+      localView.setUint16(28, 0, true);
+      localHeader.set(nameBytes, 30);
+
+      fileParts.push(localHeader, dataBytes);
+
+      const centralHeader = new Uint8Array(46 + nameBytes.length);
+      const centralView = new DataView(centralHeader.buffer);
+      centralView.setUint32(0, 0x02014b50, true);
+      centralView.setUint16(4, 20, true);
+      centralView.setUint16(6, 20, true);
+      centralView.setUint16(8, 0, true);
+      centralView.setUint16(10, 0, true);
+      centralView.setUint16(12, 0, true);
+      centralView.setUint16(14, 0, true);
+      centralView.setUint32(16, crc, true);
+      centralView.setUint32(20, dataBytes.length, true);
+      centralView.setUint32(24, dataBytes.length, true);
+      centralView.setUint16(28, nameBytes.length, true);
+      centralView.setUint16(30, 0, true);
+      centralView.setUint16(32, 0, true);
+      centralView.setUint16(34, 0, true);
+      centralView.setUint16(36, 0, true);
+      centralView.setUint32(38, 0, true);
+      centralView.setUint32(42, offset, true);
+      centralHeader.set(nameBytes, 46);
+
+      centralParts.push(centralHeader);
+
+      offset += localHeader.length + dataBytes.length;
+    });
+
+    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+    const centralOffset = offset;
+
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+    endView.setUint32(0, 0x06054b50, true);
+    endView.setUint16(4, 0, true);
+    endView.setUint16(6, 0, true);
+    endView.setUint16(8, files.length, true);
+    endView.setUint16(10, files.length, true);
+    endView.setUint32(12, centralSize, true);
+    endView.setUint32(16, centralOffset, true);
+    endView.setUint16(20, 0, true);
+
+    const allParts = [...fileParts, ...centralParts, endRecord];
+    return new Blob(allParts as BlobPart[], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  };
+
+  type DocxParagraph = { text: string; style?: 'Heading1' | 'Heading2' | 'Heading3' };
+
+  const createDocxBlob = (paragraphs: DocxParagraph[]) => {
+    const paragraphXml = paragraphs.map(paragraph => {
+      if (!paragraph.text && !paragraph.style) {
+        return '<w:p/>';
+      }
+      const styleXml = paragraph.style ? `<w:pPr><w:pStyle w:val="${paragraph.style}"/></w:pPr>` : '';
+      const textXml = paragraph.text
+        ? `<w:r><w:t xml:space="preserve">${escapeXml(paragraph.text)}</w:t></w:r>`
+        : '<w:r/>';
+      return `<w:p>${styleXml}${textXml}</w:p>`;
+    }).join('');
+
+    const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphXml}
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>
+  </w:body>
+</w:document>`;
+
+    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+    const documentRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+
+    return createZipBlob([
+      { name: '[Content_Types].xml', content: contentTypesXml },
+      { name: '_rels/.rels', content: relsXml },
+      { name: 'word/document.xml', content: documentXml },
+      { name: 'word/_rels/document.xml.rels', content: documentRelsXml }
+    ]);
+  };
+
+  const splitIntoParagraphs = (text: string) => {
+    const lines = text.split(/\r?\n/);
+    return lines.length ? lines : [''];
+  };
+
+  const handleExportSkill = async () => {
+    if (isExporting) return;
+    const resolvedSkillName = decodeURIComponent(skillName || '');
+    const userIdToFetch = targetUserId || user?.id || '';
+    if (!resolvedSkillName || !userIdToFetch) return;
+    setIsExporting(true);
+    try {
+      const data = await api.logs.list(userIdToFetch, resolvedSkillName);
+      const visibleLogs = (data || [])
+        .filter(log => log.status !== 'rejected' && log.type !== 'completion_request' && log.type !== 'application')
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      const authorName = targetUserName || (username ? username.replace(/_/g, ' ') : user?.name) || 'Автор';
+      const exportedAt = new Date().toLocaleString('ru-RU');
+      const paragraphs: DocxParagraph[] = [];
+
+      paragraphs.push({ text: resolvedSkillName, style: 'Heading1' });
+      paragraphs.push({ text: `Автор: ${authorName}` });
+      paragraphs.push({ text: `Экспортировано: ${exportedAt}` });
+      paragraphs.push({ text: '' });
+
+      if (!visibleLogs.length) {
+        paragraphs.push({ text: 'Нет данных для экспорта.' });
+      } else {
+        visibleLogs.forEach((log, index) => {
+          const date = new Date(log.created_at).toLocaleDateString('ru-RU');
+          paragraphs.push({ text: `Пост ${index + 1}`, style: 'Heading3' });
+          paragraphs.push({ text: `Дата: ${date}` });
+          if (log.post_link) {
+            paragraphs.push({ text: `Ссылка: ${log.post_link}` });
+          }
+          splitIntoParagraphs(log.content).forEach(line => {
+            paragraphs.push({ text: line });
+          });
+          paragraphs.push({ text: '' });
+        });
+      }
+
+      const blob = createDocxBlob(paragraphs);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resolvedSkillName}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const decodedSkillName = decodeURIComponent(skillName || '');
   const isOwner = user?.id === targetUserId;
 
@@ -788,23 +995,24 @@ export const SkillDetail: React.FC = () => {
       <div className="relative z-20 max-w-4xl mx-auto p-4 md:p-8">
         <button
           onClick={() => username ? navigate(`/u/${username}`) : navigate('/')}
-          className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
+          className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif w-full justify-center md:w-auto md:justify-start"
         >
           <ArrowLeft className="w-5 h-5" />
           {username ? 'Вернуться к профилю' : 'Вернуться в кабинет'}
         </button>
 
         <div className="relative mb-12">
+          <div className="absolute inset-0 bg-black/50 hidden md:block"></div>
           <img
             src={frameSvg}
             alt="Frame"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
+            className="absolute inset-0 w-full h-full object-fill z-10 pointer-events-none select-none hidden md:block"
           />
            <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
 
           <div className={`relative z-10 flex flex-col md:flex-row justify-between px-6 py-6 md:px-12 md:py-8 gap-4 md:gap-0 ${isAdmin ? 'items-center md:items-start' : 'items-center md:items-end'}`}>
-            <div>
-                <h1 className="font-seminaria font-normal flex items-center gap-4 text-hogwarts-gold">
+            <div className="w-full md:w-auto">
+                <h1 className="font-seminaria font-normal flex flex-col md:flex-row items-center justify-center md:justify-start gap-2 md:gap-4 text-hogwarts-gold text-center md:text-left px-2 md:px-0">
                     {decodedSkillName === 'Трансгрессия' ? (
                         <img 
                             src={transgressionSvg} 
@@ -892,9 +1100,9 @@ export const SkillDetail: React.FC = () => {
                     ) : (
                         <Feather className="w-12 h-12 shrink-0" />
                     )}
-                    <div className="flex flex-col">
+                    <div className="flex flex-col items-center md:items-start">
                         <span className={`whitespace-nowrap ${getSkillHeaderClass(decodedSkillName)}`}>{decodedSkillName}</span>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <div className="flex items-center justify-center md:justify-start gap-2 mt-1 flex-wrap">
                             <span className="text-white text-base md:text-lg font-century">
                                 {isAdmin ? (viewMode === 'pending' ? 'Ожидают проверки' : 'Архив одобренных') : 'История практики'}
                             </span>
@@ -912,12 +1120,16 @@ export const SkillDetail: React.FC = () => {
                                     {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
                                 </button>
                             )}
-                            {!isAdmin && username && (
+                            {!isAdmin && !username && (
                                 <button
-                                    onClick={() => navigate(`/u/${username}/stories`)}
-                                    className="px-3 py-1 rounded-full bg-black/40 border border-hogwarts-gold/60 text-xs md:text-sm text-hogwarts-gold hover:bg-hogwarts-gold hover:text-hogwarts-ink font-nexa uppercase tracking-wide transition-colors"
+                                    onClick={handleExportSkill}
+                                    disabled={isExporting || (!targetUserId && !user?.id)}
+                                    className={`flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all text-sm ${
+                                      isExporting || (!targetUserId && !user?.id) ? 'opacity-60 cursor-not-allowed' : ''
+                                    }`}
                                 >
-                                    Сюжеты {inflectName(username.replace(/_/g, ' '))}
+                                    <Upload className="w-5 h-5" />
+                                    Экспорт
                                 </button>
                             )}
                         </div>

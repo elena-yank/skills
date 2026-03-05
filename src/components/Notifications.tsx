@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, Check, Info, XCircle, CheckCircle, Trash2, CheckSquare, Clock, X } from 'lucide-react';
+import { Bell, Check, XCircle, CheckCircle, Trash2, CheckSquare, Clock, X } from 'lucide-react';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { Notification, RaceChangeRequest } from '../lib/api/types';
 import { api } from '../lib/api';
 import { RaceRequestModal } from './RaceRequestModal';
+import infoSvg from '../assets/info.svg';
 
 export const Notifications: React.FC = () => {
     const { user, notifications, fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification } = useStore();
@@ -79,8 +80,8 @@ export const Notifications: React.FC = () => {
         switch (type) {
             case 'success': return <CheckCircle className="w-5 h-5 text-hogwarts-green" />;
             case 'error': return <XCircle className="w-5 h-5 text-hogwarts-red" />;
-            case 'warning': return <Info className="w-5 h-5 text-hogwarts-gold" />;
-            default: return <Info className="w-5 h-5 text-hogwarts-blue" />;
+            case 'warning': return <img src={infoSvg} alt="Информация" className="w-5 h-5" />;
+            default: return <img src={infoSvg} alt="Информация" className="w-5 h-5" />;
         }
     };
 

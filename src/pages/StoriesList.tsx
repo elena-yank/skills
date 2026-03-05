@@ -7,7 +7,7 @@ import frameSvg from '../assets/frame.svg';
 import scrollImg from '../assets/scroll.png';
 import storyIcon from '../assets/story.svg';
 import { useStore } from '../store';
-import { Plus, ArrowLeft, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, ArrowLeft, Trash2, ExternalLink, Upload, X } from 'lucide-react';
 import { inflectName } from '../lib/utils/inflection';
 
 interface SegmentForm {
@@ -31,6 +31,9 @@ export const StoriesList: React.FC = () => {
   const [authors, setAuthors] = useState('');
   const [segments, setSegments] = useState<SegmentForm[]>([{ content: '', link: '', author: '' }]);
   const [isSaving, setIsSaving] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedExportStoryId, setSelectedExportStoryId] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const isMyStories = !username;
   const isOwner = isMyStories || (!!user && !!targetUserId && user.id === targetUserId);
@@ -102,6 +105,169 @@ export const StoriesList: React.FC = () => {
     loadUserAndStories();
   }, [username, user, targetUserId, targetUserName]);
 
+  useEffect(() => {
+    if (!showExportModal) return;
+    if (!stories.length) {
+      setSelectedExportStoryId('');
+      return;
+    }
+    const exists = stories.some(story => story.id === selectedExportStoryId);
+    if (!exists) {
+      setSelectedExportStoryId(stories[0].id);
+    }
+  }, [showExportModal, stories, selectedExportStoryId]);
+
+  const escapeXml = (value: string) => {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const createZipBlob = (files: { name: string; content: string }[]) => {
+    const encoder = new TextEncoder();
+    const crcTable = (() => {
+      const table = new Uint32Array(256);
+      for (let i = 0; i < 256; i += 1) {
+        let c = i;
+        for (let k = 0; k < 8; k += 1) {
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[i] = c >>> 0;
+      }
+      return table;
+    })();
+
+    const crc32 = (data: Uint8Array) => {
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < data.length; i += 1) {
+        crc = (crc >>> 8) ^ crcTable[(crc ^ data[i]) & 0xFF];
+      }
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    };
+
+    const fileParts: Uint8Array[] = [];
+    const centralParts: Uint8Array[] = [];
+    let offset = 0;
+
+    files.forEach(file => {
+      const nameBytes = encoder.encode(file.name);
+      const dataBytes = encoder.encode(file.content);
+      const crc = crc32(dataBytes);
+
+      const localHeader = new Uint8Array(30 + nameBytes.length);
+      const localView = new DataView(localHeader.buffer);
+      localView.setUint32(0, 0x04034b50, true);
+      localView.setUint16(4, 20, true);
+      localView.setUint16(6, 0, true);
+      localView.setUint16(8, 0, true);
+      localView.setUint16(10, 0, true);
+      localView.setUint16(12, 0, true);
+      localView.setUint32(14, crc, true);
+      localView.setUint32(18, dataBytes.length, true);
+      localView.setUint32(22, dataBytes.length, true);
+      localView.setUint16(26, nameBytes.length, true);
+      localView.setUint16(28, 0, true);
+      localHeader.set(nameBytes, 30);
+
+      fileParts.push(localHeader, dataBytes);
+
+      const centralHeader = new Uint8Array(46 + nameBytes.length);
+      const centralView = new DataView(centralHeader.buffer);
+      centralView.setUint32(0, 0x02014b50, true);
+      centralView.setUint16(4, 20, true);
+      centralView.setUint16(6, 20, true);
+      centralView.setUint16(8, 0, true);
+      centralView.setUint16(10, 0, true);
+      centralView.setUint16(12, 0, true);
+      centralView.setUint16(14, 0, true);
+      centralView.setUint32(16, crc, true);
+      centralView.setUint32(20, dataBytes.length, true);
+      centralView.setUint32(24, dataBytes.length, true);
+      centralView.setUint16(28, nameBytes.length, true);
+      centralView.setUint16(30, 0, true);
+      centralView.setUint16(32, 0, true);
+      centralView.setUint16(34, 0, true);
+      centralView.setUint16(36, 0, true);
+      centralView.setUint32(38, 0, true);
+      centralView.setUint32(42, offset, true);
+      centralHeader.set(nameBytes, 46);
+
+      centralParts.push(centralHeader);
+
+      offset += localHeader.length + dataBytes.length;
+    });
+
+    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+    const centralOffset = offset;
+
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+    endView.setUint32(0, 0x06054b50, true);
+    endView.setUint16(4, 0, true);
+    endView.setUint16(6, 0, true);
+    endView.setUint16(8, files.length, true);
+    endView.setUint16(10, files.length, true);
+    endView.setUint32(12, centralSize, true);
+    endView.setUint32(16, centralOffset, true);
+    endView.setUint16(20, 0, true);
+
+    const allParts = [...fileParts, ...centralParts, endRecord];
+    return new Blob(allParts as BlobPart[], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  };
+
+  type DocxParagraph = { text: string; style?: 'Heading1' | 'Heading2' | 'Heading3' };
+
+  const createDocxBlob = (paragraphs: DocxParagraph[]) => {
+    const paragraphXml = paragraphs.map(paragraph => {
+      if (!paragraph.text && !paragraph.style) {
+        return '<w:p/>';
+      }
+      const styleXml = paragraph.style ? `<w:pPr><w:pStyle w:val="${paragraph.style}"/></w:pPr>` : '';
+      const textXml = paragraph.text
+        ? `<w:r><w:t xml:space="preserve">${escapeXml(paragraph.text)}</w:t></w:r>`
+        : '<w:r/>';
+      return `<w:p>${styleXml}${textXml}</w:p>`;
+    }).join('');
+
+    const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphXml}
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>
+  </w:body>
+</w:document>`;
+
+    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+    const documentRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+
+    return createZipBlob([
+      { name: '[Content_Types].xml', content: contentTypesXml },
+      { name: '_rels/.rels', content: relsXml },
+      { name: 'word/document.xml', content: documentXml },
+      { name: 'word/_rels/document.xml.rels', content: documentRelsXml }
+    ]);
+  };
+
+  const splitIntoParagraphs = (text: string) => {
+    const lines = text.split(/\r?\n/);
+    return lines.length ? lines : [''];
+  };
+
   const handleAddSegment = () => {
     // Default author for new segment is the first one in the list or the user's name
     const defaultAuthor = authorsList.length > 0 ? authorsList[0] : (user?.name || '');
@@ -162,6 +328,59 @@ export const StoriesList: React.FC = () => {
     navigate(`/stories/${id}`);
   };
 
+  const handleExportStory = async (storyId: string) => {
+    if (!storyId) return;
+    setIsExporting(true);
+    try {
+      const story = await api.stories.get(storyId);
+      const exportedAt = new Date().toLocaleString('ru-RU');
+      const authorName = story.user_name || targetUserName || username?.replace(/_/g, ' ') || user?.name || 'Автор';
+      const paragraphs: DocxParagraph[] = [];
+
+      paragraphs.push({ text: story.title || 'Без названия', style: 'Heading1' });
+      paragraphs.push({ text: `Автор: ${authorName}` });
+      if (story.authors) {
+        paragraphs.push({ text: `Соавторы: ${story.authors}` });
+      }
+      paragraphs.push({ text: `Экспортировано: ${exportedAt}` });
+      paragraphs.push({ text: '' });
+
+      const segments = (story.segments || []).sort((a, b) => a.position - b.position);
+      if (!segments.length) {
+        paragraphs.push({ text: 'Нет сегментов.' });
+      } else {
+        segments.forEach((segment, index) => {
+          paragraphs.push({ text: `Сегмент ${index + 1}`, style: 'Heading3' });
+          if (segment.author) {
+            paragraphs.push({ text: `Автор: ${segment.author}` });
+          }
+          if (segment.link) {
+            paragraphs.push({ text: `Ссылка: ${segment.link}` });
+          }
+          splitIntoParagraphs(segment.content || '').forEach(line => {
+            paragraphs.push({ text: line });
+          });
+          paragraphs.push({ text: '' });
+        });
+      }
+
+      const blob = createDocxBlob(paragraphs);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${story.title || 'Сюжет'}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setShowExportModal(false);
+    } catch (e) {
+      setError('Не удалось экспортировать сюжет.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const displayName = isMyStories ? user?.name || 'Моя история' : targetUserName || username?.replace(/_/g, ' ');
 
   return (
@@ -182,10 +401,11 @@ export const StoriesList: React.FC = () => {
           </button>
 
           <div className="relative mb-8 md:mb-12">
+            <div className="absolute inset-0 bg-black/50 hidden md:block [@media(orientation:landscape)]:block"></div>
             <img
               src={frameSvg}
               alt="Frame"
-              className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
+              className="absolute inset-0 w-full h-full object-fill z-10 pointer-events-none select-none hidden md:block [@media(orientation:landscape)]:block"
             />
             <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden [@media(orientation:landscape)]:hidden rounded-lg" />
 
@@ -207,8 +427,89 @@ export const StoriesList: React.FC = () => {
                   </p>
                 </div>
               </div>
+              {!!targetUserId && (
+                <div className="flex items-center justify-center md:justify-end [@media(orientation:landscape)]:justify-end w-full md:w-auto [@media(orientation:landscape)]:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportModal(true)}
+                    className="flex items-center gap-2 text-hogwarts-gold hover:text-yellow-200 font-bold font-century px-4 py-2 border-2 border-transparent hover:border-hogwarts-gold rounded transition-all text-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Экспорт
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+
+          {showExportModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn"
+              onClick={() => setShowExportModal(false)}
+            >
+              <div
+                className="relative w-full max-w-lg bg-hogwarts-parchment rounded-lg shadow-2xl border-4 border-hogwarts-gold flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="absolute top-4 right-4 text-hogwarts-ink hover:text-hogwarts-red transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                <div className="p-6 border-b-2 border-hogwarts-bronze bg-hogwarts-parchment">
+                  <h2 className="text-xl md:text-2xl font-seminaria text-hogwarts-red font-bold">
+                    Экспорт сюжета
+                  </h2>
+                  <p className="text-sm md:text-base text-hogwarts-ink/80 font-century mt-2">
+                    Выберите сюжет для экспорта
+                  </p>
+                </div>
+                <div className="p-6 flex flex-col gap-4">
+                  <select
+                    value={selectedExportStoryId}
+                    onChange={(e) => setSelectedExportStoryId(e.target.value)}
+                    disabled={!stories.length || isExporting}
+                    className="w-full px-4 py-2 bg-white border-2 border-hogwarts-bronze rounded focus:outline-none focus:border-hogwarts-red transition-colors font-century"
+                  >
+                    {stories.map(story => (
+                      <option key={story.id} value={story.id}>
+                        {story.title || 'Без названия'}
+                      </option>
+                    ))}
+                  </select>
+                  {!stories.length && (
+                    <div className="text-sm text-hogwarts-ink/70 font-century">
+                      Пока нет данных для экспорта
+                    </div>
+                  )}
+                  {isExporting && (
+                    <div className="text-sm text-hogwarts-ink/70 font-century">
+                      Экспорт...
+                    </div>
+                  )}
+                </div>
+                <div className="p-6 border-t-2 border-hogwarts-bronze bg-hogwarts-parchment flex justify-end gap-3 md:gap-4">
+                  <button
+                    onClick={() => setShowExportModal(false)}
+                    className="px-3 py-1.5 md:px-6 md:py-2 text-hogwarts-ink font-magical hover:bg-hogwarts-bronze/10 rounded border border-hogwarts-bronze transition-colors font-nexa uppercase text-xs md:text-base"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => handleExportStory(selectedExportStoryId)}
+                    disabled={!selectedExportStoryId || isExporting || !stories.length}
+                    className={`px-3 py-1.5 md:px-6 md:py-2 font-magical font-bold rounded border-2 border-hogwarts-gold shadow-md transition-all font-nexa uppercase text-xs md:text-base
+                      ${selectedExportStoryId && !isExporting && stories.length
+                        ? 'bg-hogwarts-red text-hogwarts-gold hover:bg-red-900'
+                        : 'bg-gray-400 text-gray-200 cursor-not-allowed border-gray-400'}`}
+                  >
+                    {isExporting ? 'Экспорт...' : 'Экспортировать'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 rounded border border-red-500 bg-red-500/10 text-sm text-red-100 font-century">

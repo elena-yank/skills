@@ -71,17 +71,18 @@ export const WizardList: React.FC = () => {
       <div className="relative z-20 max-w-4xl mx-auto p-4 md:p-8">
         <button
           onClick={() => navigate(user ? '/' : '/login')}
-          className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif"
+          className="flex items-center gap-2 text-white hover:text-hogwarts-gold mb-8 font-magical font-bold transition-colors font-serif w-full justify-center md:w-auto md:justify-start"
         >
           <ArrowLeft className="w-5 h-5" />
           {user ? 'Вернуться в кабинет' : 'Вернуться ко входу'}
         </button>
 
         <div className="relative mb-8 md:mb-12">
+          <div className="absolute inset-0 bg-black/50 hidden md:block"></div>
           <img
             src={frameSvg}
             alt="Frame"
-            className="absolute inset-0 w-full h-full object-fill z-0 pointer-events-none select-none hidden md:block"
+            className="absolute inset-0 w-full h-full object-fill z-10 pointer-events-none select-none hidden md:block"
           />
           <div className="absolute inset-0 border-2 border-hogwarts-gold/50 bg-black/40 md:hidden rounded-lg"></div>
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-4 px-4 py-6 md:px-12 md:py-8">
