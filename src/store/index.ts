@@ -318,15 +318,15 @@ export const useStore = create<AppState>((set, get) => ({
                     level = status.level;
                     progress = status.progress;
                     if (name === 'Метаморфомагия') {
-                        const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress, level);
+                        const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress, level, user.role === 'admin');
                         progress = adjusted.progress;
                         level = adjusted.level;
                         ageCapMessage = adjusted.ageCapMessage;
                     }
                 }
              } else {
-                progress = calculateSkillProgress(name, personalCount, hasExamPassed, user.age);
-                const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress);
+                progress = calculateSkillProgress(name, personalCount, hasExamPassed, user.age, user.role === 'admin');
+                const adjusted = applyAgeRestrictions(name, user.age, personalCount, progress, undefined, user.role === 'admin');
                 progress = adjusted.progress;
                 ageCapMessage = adjusted.ageCapMessage;
              }
@@ -430,12 +430,12 @@ export const useStore = create<AppState>((set, get) => ({
                     };
                 }
                 const base = calculateSpecialSkillStatus(count);
-                const adjusted = applyAgeRestrictions(name, user.age, count, base.progress, base.level);
+                const adjusted = applyAgeRestrictions(name, user.age, count, base.progress, base.level, user.role === 'admin');
                 return { id: name, name, progress: adjusted.progress, isLocked: false, level: adjusted.level, ageCapMessage: adjusted.ageCapMessage };
             }
 
-            const baseProgress = calculateSkillProgress(name, count, hasExamPassed, user.age);
-            const adjusted = applyAgeRestrictions(name, user.age, count, baseProgress);
+            const baseProgress = calculateSkillProgress(name, count, hasExamPassed, user.age, user.role === 'admin');
+            const adjusted = applyAgeRestrictions(name, user.age, count, baseProgress, undefined, user.role === 'admin');
 
             return {
                 id: name,

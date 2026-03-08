@@ -232,7 +232,7 @@ export const PublicProfile: React.FC = () => {
           
           if (['Метаморфомагия', 'Провидение'].includes(name)) {
               const base = calculateSpecialSkillStatus(count);
-              const adjusted = applyAgeRestrictions(name, age, count, base.progress, base.level);
+              const adjusted = applyAgeRestrictions(name, age, count, base.progress, base.level, userData.role === 'admin');
               
               return {
                   id: name,
@@ -245,8 +245,8 @@ export const PublicProfile: React.FC = () => {
               };
           }
 
-          const baseProgress = calculateSkillProgress(name, count, hasExamPassed, age);
-          const adjusted = applyAgeRestrictions(name, age, count, baseProgress);
+          const baseProgress = calculateSkillProgress(name, count, hasExamPassed, age, userData.role === 'admin');
+          const adjusted = applyAgeRestrictions(name, age, count, baseProgress, undefined, userData.role === 'admin');
           return {
               id: name,
               name,

@@ -22,14 +22,14 @@ const isHogwartsAge = (age?: string) => {
     return normalized === "хогвартс" || normalized === "школа";
 };
 
-export const calculateSkillProgress = (skillName: string, approvedCount: number, hasExamPassed: boolean = false, age?: string): number => {
+export const calculateSkillProgress = (skillName: string, approvedCount: number, hasExamPassed: boolean = false, age?: string, isAdmin: boolean = false): number => {
     if (hasExamPassed) return 100;
 
     const threshold = SKILL_THRESHOLDS[skillName] || 100;
     let percentage = (approvedCount / threshold) * 90;
     let progress = Math.min(Math.round(percentage), 90);
 
-    if (isHogwartsAge(age) && (skillName === "Легилименция" || skillName === "Окклюменция")) {
+    if (!isAdmin && isHogwartsAge(age) && (skillName === "Легилименция" || skillName === "Окклюменция")) {
         if (approvedCount <= 10) {
             progress = Math.min(50, Math.round((approvedCount / 10) * 50));
         }
@@ -57,13 +57,14 @@ export const applyAgeRestrictions = (
     age: string | undefined,
     approvedCount: number,
     baseProgress: number,
-    baseLevel?: number
+    baseLevel?: number,
+    isAdmin: boolean = false
 ): { progress: number; level?: number; ageCapMessage?: string } => {
     let progress = baseProgress;
     let level = baseLevel;
     let ageCapMessage: string | undefined;
 
-    if (!isHogwartsAge(age)) {
+    if (isAdmin || !isHogwartsAge(age)) {
         return { progress, level, ageCapMessage };
     }
 

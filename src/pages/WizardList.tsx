@@ -9,6 +9,7 @@ import ravenclawEmblem from '../assets/ravenclaw.svg';
 import hufflepuffEmblem from '../assets/hufflepuff.svg';
 import slytherinEmblem from '../assets/slytherin.svg';
 import mdEmblem from '../assets/md.svg';
+import mmEmblem from '../assets/mm.svg';
 import avatarSvg from '../assets/avatar.svg';
 import { User as UserType } from '../lib/api/types';
 import { useStore } from '../store';
@@ -130,25 +131,28 @@ export const WizardList: React.FC = () => {
               const isHufflepuff = wizard.faculty === 'Пуффендуй';
               const isSlytherin = wizard.faculty === 'Слизерин';
               const isMD = wizard.age === 'МД';
+              const isAdmin = wizard.role === 'admin';
               const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
-              const hasSpecialStyle = hasFaculty || isMD;
+              const hasSpecialStyle = hasFaculty || isMD || isAdmin;
               
               return (
                 <div 
                   key={wizard.id}
                   onClick={() => navigate(`/u/${wizard.name.replace(/\s+/g, '_')}`)}
                   className={`py-4 px-6 rounded-lg shadow-md border-2 cursor-pointer transition-all group relative overflow-hidden
-                    ${isGryffindor 
-                      ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
-                      : isRavenclaw
-                        ? 'bg-[#0e1a40] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                        : isHufflepuff
-                          ? 'bg-[#ecb939] border-hogwarts-ink hover:shadow-[0_0_20px_rgba(0,0,0,0.2)]'
-                          : isSlytherin
-                            ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                            : isMD
-                              ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
-                              : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
+                    ${isAdmin
+                      ? 'bg-[#4c1d95] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                      : isGryffindor 
+                        ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
+                        : isRavenclaw
+                          ? 'bg-[#0e1a40] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                          : isHufflepuff
+                            ? 'bg-[#ecb939] border-hogwarts-ink hover:shadow-[0_0_20px_rgba(0,0,0,0.2)]'
+                            : isSlytherin
+                              ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                              : isMD
+                                ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
+                                : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
                 >
                   {/* Glass effect gradient for Special Styles */}
                   {hasSpecialStyle && (
@@ -165,10 +169,19 @@ export const WizardList: React.FC = () => {
 
                   {/* Special Emblem / User Icon */}
                   <div className={`absolute transition-all duration-300 z-10
-                    ${hasSpecialStyle 
-                      ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
-                      : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}>
-                    {isGryffindor ? (
+                    ${isAdmin
+                      ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
+                      : hasSpecialStyle 
+                        ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
+                        : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}>
+                    {isAdmin ? (
+                      <img
+                        src={mmEmblem}
+                        alt="Администратор"
+                        className="w-44 h-44 object-contain"
+                        style={{ filter: 'brightness(0) saturate(100%) invert(8%) sepia(46%) saturate(7400%) hue-rotate(265deg) brightness(70%) contrast(110%)' }}
+                      />
+                    ) : isGryffindor ? (
                       <img src={gryffindorEmblem} alt="Gryffindor" className="w-32 h-32 object-contain" />
                     ) : isRavenclaw ? (
                       <img src={ravenclawEmblem} alt="Ravenclaw" className="w-32 h-32 object-contain" />
@@ -203,11 +216,13 @@ export const WizardList: React.FC = () => {
                     <div className="flex flex-col gap-1">
                         <h3 className={`text-xl font-bold font-seminaria transition-colors
                           ${hasSpecialStyle 
-                            ? isHufflepuff || isMD
-                              ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
-                              : isSlytherin || isRavenclaw
-                                ? 'text-white group-hover:text-hogwarts-gold'
-                                : 'text-hogwarts-gold group-hover:text-white' 
+                            ? isAdmin
+                              ? 'text-white group-hover:text-hogwarts-gold'
+                              : isHufflepuff || isMD
+                                ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
+                                : isSlytherin || isRavenclaw
+                                  ? 'text-white group-hover:text-hogwarts-gold'
+                                  : 'text-hogwarts-gold group-hover:text-white' 
                             : 'text-hogwarts-ink group-hover:text-hogwarts-red'}`}>
                             {wizard.name}
                         </h3>
