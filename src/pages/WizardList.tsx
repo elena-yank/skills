@@ -130,8 +130,8 @@ export const WizardList: React.FC = () => {
               const isRavenclaw = wizard.faculty === 'Когтевран';
               const isHufflepuff = wizard.faculty === 'Пуффендуй';
               const isSlytherin = wizard.faculty === 'Слизерин';
-              const isMD = wizard.age === 'МД';
               const isAdmin = wizard.role === 'admin';
+              const isMD = wizard.age === 'МД' && !isAdmin;
               const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
               const hasSpecialStyle = hasFaculty || isMD || isAdmin;
               
