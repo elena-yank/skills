@@ -20,6 +20,7 @@ export interface Skill {
   progress: number; // 0-100
   pendingCount?: number;
   approvedCount?: number;
+  globalApprovedCount?: number;
   totalPosts?: number;
   isLocked?: boolean;
   level?: number;
@@ -197,104 +198,137 @@ export const useStore = create<AppState>((set, get) => ({
       // For admins/moderators, we ALWAYS use the full logic because it includes personal stats
       // except if explicitly viewing as user AND we want to save bandwidth (not needed here)
       if (user.role === 'admin' || user.role === 'moderator') {
-         // Prefetch pending counts for instant accurate badges
-         try {
-           const pendingCounts = await api.logs.pendingCounts(user.id);
-           const { skills } = get();
+         const { skills: previousSkills } = get();
+         const previousSkillByName = new Map(previousSkills.map(s => [s.name, s]));
+
+         const pendingCountsPromise = api.logs.pendingCounts(user.id).catch(() => null);
+         const approvedCountsPromise = api.logs.approvedCounts(user.id).catch(() => null);
+         const personalLogsPromise = viewAsUser ? api.logs.list(user.id).catch(() => null) : Promise.resolve(null);
+
+         let pendingCounts: Record<string, number> | null = null;
+         let approvedCounts: Record<string, number> | null = null;
+
+         pendingCountsPromise.then(result => {
+           if (!result) return;
+           pendingCounts = result;
            const quickSkills = DEFAULT_SKILLS.map(name => {
-              const existing = skills.find(s => s.name === name);
-              return {
-                id: name,
-                name,
-                progress: existing?.progress || 0,
-                isLocked: existing?.isLocked,
-                level: existing?.level,
-                applicationStatus: existing?.applicationStatus,
-                completionStatus: existing?.completionStatus,
-                hasExamPassed: existing?.hasExamPassed,
-                approvedCount: existing?.approvedCount,
-                pendingCount: pendingCounts[name] || 0,
-              } as Skill;
+             const existing = previousSkillByName.get(name);
+             return {
+               id: name,
+               name,
+               progress: existing?.progress || 0,
+               isLocked: existing?.isLocked,
+               level: existing?.level,
+               applicationStatus: existing?.applicationStatus,
+               completionStatus: existing?.completionStatus,
+               hasExamPassed: existing?.hasExamPassed,
+               approvedCount: existing?.approvedCount,
+               globalApprovedCount: existing?.globalApprovedCount,
+               pendingCount: result[name] || 0,
+             } as Skill;
            });
            set({ skills: quickSkills });
-         } catch (e) {
-           console.warn('Fast pending counts failed', e);
+         });
+
+         approvedCountsPromise.then(result => {
+           if (!result) return;
+           approvedCounts = result;
+           set({
+             skills: get().skills.map(s => ({
+               ...s,
+               globalApprovedCount: result[s.name] ?? s.globalApprovedCount ?? 0
+             }))
+           });
+         });
+
+         const personalLogs = await personalLogsPromise;
+
+         if (!viewAsUser) {
+           const finalPendingCounts = pendingCounts ?? (await pendingCountsPromise);
+           const finalApprovedCounts = approvedCounts ?? (await approvedCountsPromise);
+           const updatedSkills = DEFAULT_SKILLS.map(name => {
+             const prev = previousSkillByName.get(name);
+             return {
+               id: name,
+               name,
+               progress: prev?.progress || 0,
+               isLocked: prev?.isLocked,
+               level: prev?.level,
+               applicationStatus: prev?.applicationStatus,
+               completionStatus: prev?.completionStatus,
+               hasExamPassed: prev?.hasExamPassed,
+               ageCapMessage: prev?.ageCapMessage,
+               totalPosts: prev?.totalPosts || 0,
+               approvedCount: prev?.approvedCount || 0,
+               pendingCount: finalPendingCounts?.[name] ?? prev?.pendingCount ?? 0,
+               globalApprovedCount: finalApprovedCounts?.[name] ?? prev?.globalApprovedCount ?? 0,
+             } as Skill;
+           });
+           set({ skills: updatedSkills });
+           try {
+             localStorage.setItem(SKILLS_STORAGE_KEY, JSON.stringify(updatedSkills));
+           } catch {
+             
+           }
+           return;
          }
-         // Admin/Moderator logic: Combine Global Stats (for Dashboard) + Personal Stats (for Progress)
-         const data = await api.logs.listAll(); 
-         
-         // 1. Dashboard Stats (Pending/Approved Global)
-         const globalApprovedMap = new Map<string, number>();
-         const globalPendingMap = new Map<string, number>();
-         
-         // 2. Personal Stats
+
          const personalApprovedMap = new Map<string, number>();
          const personalExamPassedMap = new Map<string, boolean>();
          const personalSpecialSkillAppStatus = new Map<string, 'pending' | 'approved' | 'rejected'>();
          const personalCompletionStatus = new Map<string, 'pending' | 'rejected'>();
          const personalTotalPostsMap = new Map<string, number>();
 
-         data?.forEach(log => {
-             // --- Dashboard Stats Logic ---
-             // For moderators, only count logs for managed skills
-             const isManaged = user.role === 'admin' || (user.role === 'moderator' && user.managed_skills?.includes(log.skill_name));
-             
-             if (isManaged) {
-                 if (log.status === 'approved') {
-                     globalApprovedMap.set(log.skill_name, (globalApprovedMap.get(log.skill_name) || 0) + 1);
-                 } else if (log.status === 'pending') {
-                     globalPendingMap.set(log.skill_name, (globalPendingMap.get(log.skill_name) || 0) + 1);
-                 }
+         personalLogs?.forEach(log => {
+           if (log.type === 'completion_request') {
+             if (log.status === 'pending') {
+               personalCompletionStatus.set(log.skill_name, 'pending');
+             } else if (log.status === 'rejected') {
+               personalCompletionStatus.set(log.skill_name, 'rejected');
+             } else if (log.status === 'study_completed') {
+               personalExamPassedMap.set(log.skill_name, true);
              }
+             return;
+           }
 
-             // --- Personal Stats Logic ---
-             if (log.user_id === user.id) {
-                 if (log.type === 'completion_request') {
-                 if (log.status === 'pending') {
-                     personalCompletionStatus.set(log.skill_name, 'pending');
-                 } else if (log.status === 'rejected') {
-                     personalCompletionStatus.set(log.skill_name, 'rejected');
-                 } else if (log.status === 'study_completed') {
-                     personalExamPassedMap.set(log.skill_name, true);
-                 }
-                 return;
+           if (log.type === 'application') {
+             if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
+               const current = personalSpecialSkillAppStatus.get(log.skill_name);
+               if (current === 'approved') return;
+
+               if (log.status === 'approved') {
+                 personalSpecialSkillAppStatus.set(log.skill_name, 'approved');
+               } else if (log.status === 'pending') {
+                 personalSpecialSkillAppStatus.set(log.skill_name, 'pending');
+               } else if (log.status === 'rejected' && current !== 'pending') {
+                 personalSpecialSkillAppStatus.set(log.skill_name, 'rejected');
+               }
              }
+             return;
+           }
 
-                 // Handle application logs
-                 if (log.type === 'application') {
-                     if (['Метаморфомагия', 'Провидение'].includes(log.skill_name)) {
-                         const current = personalSpecialSkillAppStatus.get(log.skill_name);
-                         if (current === 'approved') return; // Already approved
-                         
-                         if (log.status === 'approved') {
-                             personalSpecialSkillAppStatus.set(log.skill_name, 'approved');
-                         } else if (log.status === 'pending') {
-                             personalSpecialSkillAppStatus.set(log.skill_name, 'pending');
-                         } else if (log.status === 'rejected' && current !== 'pending') {
-                         personalSpecialSkillAppStatus.set(log.skill_name, 'rejected');
-                     }
-                 }
-                 return; // Don't count application logs for progress
-             }
+           if (log.status !== 'rejected') {
+             const totalCurrent = personalTotalPostsMap.get(log.skill_name) || 0;
+             personalTotalPostsMap.set(log.skill_name, totalCurrent + 1);
+           }
 
-                 if (log.status !== 'rejected') {
-                     const totalCurrent = personalTotalPostsMap.get(log.skill_name) || 0;
-                     personalTotalPostsMap.set(log.skill_name, totalCurrent + 1);
-                 }
+           if (log.status === 'approved') {
+             const current = personalApprovedMap.get(log.skill_name) || 0;
+             personalApprovedMap.set(log.skill_name, current + 1);
+           }
 
-                 if (log.status === 'approved') {
-                    const current = personalApprovedMap.get(log.skill_name) || 0;
-                    personalApprovedMap.set(log.skill_name, current + 1);
-                 }
-                 if (log.status === 'exam_passed' || log.status === 'study_completed') {
-                     personalExamPassedMap.set(log.skill_name, true);
-                     const current = personalApprovedMap.get(log.skill_name) || 0;
-                     personalApprovedMap.set(log.skill_name, current + 1);
-                 }
-             }
+           if (log.status === 'exam_passed' || log.status === 'study_completed') {
+             personalExamPassedMap.set(log.skill_name, true);
+             const current = personalApprovedMap.get(log.skill_name) || 0;
+             personalApprovedMap.set(log.skill_name, current + 1);
+           }
          });
          
+        const finalPendingCounts = pendingCounts ?? (await pendingCountsPromise) ?? null;
+        const finalApprovedCounts = approvedCounts ?? (await approvedCountsPromise) ?? null;
+
         const updatedSkills = DEFAULT_SKILLS.map(name => {
+             const prev = previousSkillByName.get(name);
              // Calculate Personal Progress
              const personalCount = personalApprovedMap.get(name) || 0;
              const hasExamPassed = personalExamPassedMap.get(name) || false;
@@ -344,8 +378,8 @@ export const useStore = create<AppState>((set, get) => ({
                  
                  // Dashboard Stats
                  approvedCount: personalCount, // Use PERSONAL count for display logic (e.g. "15 posts left")
-                 pendingCount: globalPendingMap.get(name) || 0, // Pending tasks for admin
-                 globalApprovedCount: globalApprovedMap.get(name) || 0, // Optional: if needed
+                 pendingCount: finalPendingCounts?.[name] ?? prev?.pendingCount ?? 0, // Pending tasks for admin
+                 globalApprovedCount: finalApprovedCounts?.[name] ?? prev?.globalApprovedCount ?? 0, // Global count for admin interface
                  totalPosts: personalTotalPostsMap.get(name) || 0
              };
          }).sort((a, b) => b.progress - a.progress); 

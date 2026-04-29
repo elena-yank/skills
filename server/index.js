@@ -195,6 +195,14 @@ const runMigrations = async () => {
         CREATE INDEX IF NOT EXISTS idx_stories_user_id ON stories(user_id)
       `);
 
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_practice_logs_status_skill_name ON practice_logs(status, skill_name)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_practice_logs_user_id ON practice_logs(user_id)
+      `);
+
       await client.query('COMMIT');
       console.log('Migrations completed successfully');
     } catch (err) {
@@ -518,6 +526,39 @@ app.get('/api/admin/logs/pending-counts', async (req, res) => {
     const map = {};
     for (const row of result.rows) {
       map[row.skill_name] = row.pending_count;
+    }
+    res.json(map);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Logs: Fast approved counts for Admin/Moderator
+app.get('/api/admin/logs/approved-counts', async (req, res) => {
+  const { user_id } = req.query;
+  if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+  try {
+    const userRes = await pool.query('SELECT role, managed_skills FROM wizards WHERE id = $1', [user_id]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const user = userRes.rows[0];
+    const isAdmin = user.role === 'admin';
+    const isModerator = user.role === 'moderator';
+    if (!isAdmin && !isModerator) return res.status(403).json({ error: 'Not authorized' });
+
+    let query = `SELECT skill_name, COUNT(*)::int AS approved_count
+                 FROM practice_logs
+                 WHERE status = 'approved'`;
+    const params = [];
+    if (isModerator) {
+      query += ` AND skill_name = ANY($1)`;
+      params.push(user.managed_skills || []);
+    }
+    query += ` GROUP BY skill_name`;
+    const result = await pool.query(query, params);
+    const map = {};
+    for (const row of result.rows) {
+      map[row.skill_name] = row.approved_count;
     }
     res.json(map);
   } catch (err) {
@@ -1091,6 +1132,43 @@ app.patch('/api/logs/:id/status', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+app.patch('/api/logs/:id/content', async (req, res) => {
+  const { id } = req.params;
+  const { user_id, content, word_count } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: 'user_id is required' });
+  }
+
+  if (typeof content !== 'string') {
+    return res.status(400).json({ error: 'content is required' });
+  }
+
+  try {
+    const logRes = await pool.query('SELECT id, user_id, type FROM practice_logs WHERE id = $1', [id]);
+    if (logRes.rows.length === 0) return res.status(404).json({ error: 'Log not found' });
+    const log = logRes.rows[0];
+
+    if (log.type && log.type !== 'practice') {
+      return res.status(400).json({ error: 'Only practice logs can be edited' });
+    }
+
+    if (log.user_id !== user_id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const cleanWordCount = Number.isFinite(Number(word_count)) ? Number(word_count) : 0;
+    const result = await pool.query(
+      'UPDATE practice_logs SET content = $1, word_count = $2 WHERE id = $3 RETURNING *',
+      [content, cleanWordCount, id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Race Change Requests

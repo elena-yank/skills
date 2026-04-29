@@ -15,6 +15,7 @@ export const SKILL_THRESHOLDS: Record<string, number> = {
 };
 
 export const EXAM_REQUIRED_SKILLS = ["Анимагия", "Артефакторика", "Некромантия", "Трансгрессия"];
+export const REGISTRATION_REQUIRED_SKILLS = ["Магия пространства"];
 
 const isHogwartsAge = (age?: string) => {
     if (!age) return false;

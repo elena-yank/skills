@@ -9,7 +9,7 @@ import { ImageModal } from '../components/ImageModal';
 import { ImageCropper } from '../components/ImageCropper';
 import { api } from '../lib/api';
 import { SKILL_DESCRIPTIONS } from '../data/skillDescriptions';
-import { EXAM_REQUIRED_SKILLS, SKILL_THRESHOLDS, getSkillTitleClass } from '../lib/skillUtils';
+import { EXAM_REQUIRED_SKILLS, REGISTRATION_REQUIRED_SKILLS, SKILL_THRESHOLDS, getSkillTitleClass } from '../lib/skillUtils';
 import { useNavigate } from 'react-router-dom';
 import castleImg from '../assets/castle.png';
 import scrollImg from '../assets/scroll.png';
@@ -24,6 +24,7 @@ export const Dashboard: React.FC = () => {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [selectedSkillInfo, setSelectedSkillInfo] = useState<string | null>(null);
   const [isExamMode, setIsExamMode] = useState(false);
+  const [isRegistrationMode, setIsRegistrationMode] = useState(false);
   const [isApplicationMode, setIsApplicationMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
@@ -160,15 +161,16 @@ export const Dashboard: React.FC = () => {
     // Standard Skills
     const threshold = SKILL_THRESHOLDS[skill.name] || 100;
     const isExamRequired = EXAM_REQUIRED_SKILLS.includes(skill.name);
+    const isRegistrationRequired = REGISTRATION_REQUIRED_SKILLS.includes(skill.name);
     
-    if (isExamRequired) {
+    if (isExamRequired || isRegistrationRequired) {
         if (skill.hasExamPassed) return 'Максимальный уровень';
         
         if (count < threshold) {
             const needed = threshold - count;
-            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} и экзамен`;
+            return `Ещё ${needed} ${getDeclension(needed, ['пост', 'поста', 'постов'])} и ${isRegistrationRequired ? 'регистрация' : 'экзамен'}`;
         } else {
-            return 'Требуется сдать экзамен';
+            return isRegistrationRequired ? 'Требуется пройти регистрацию' : 'Требуется сдать экзамен';
         }
     } else {
         if (count < threshold) {
@@ -679,14 +681,17 @@ export const Dashboard: React.FC = () => {
                     <h2 className="text-xl md:text-4xl text-hogwarts-gold font-seminaria font-bold text-center md:text-left">
                         {showAdminInterface ? 'Информация о навыках' : 'Личный кабинет'}
                     </h2>
-                    <div className="absolute right-0 md:static md:ml-4">
+                    <div className="hidden md:block md:ml-4">
                       <Notifications />
                     </div>
                 </div>
-                <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-2 md:gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
+                <div className="flex items-center gap-2 md:gap-4 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                   <p className="text-white text-sm md:text-lg font-century font-normal">
                     Добро пожаловать, <span className="text-hogwarts-gold">{user?.name || 'Волшебник'}</span>
                   </p>
+                  <div className="md:hidden shrink-0">
+                    <Notifications />
+                  </div>
                 </div>
                 <div className="flex flex-col md:flex-row [@media(orientation:landscape)]:flex-row items-center gap-4 mt-1 justify-center md:justify-start [@media(orientation:landscape)]:justify-start">
                   {!showAdminInterface && (
@@ -900,21 +905,22 @@ export const Dashboard: React.FC = () => {
                             </div>
                             {!showAdminInterface && (
                                 <div className="flex items-center gap-2 mt-2">
-                                    {EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
+                                    {(EXAM_REQUIRED_SKILLS.includes(skill.name) || REGISTRATION_REQUIRED_SKILLS.includes(skill.name)) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setSelectedSkill(skill.name);
-                                                setIsExamMode(true);
+                                                setIsExamMode(EXAM_REQUIRED_SKILLS.includes(skill.name));
+                                                setIsRegistrationMode(REGISTRATION_REQUIRED_SKILLS.includes(skill.name));
                                                 setIsApplicationMode(false);
                                             }}
                                             className="px-3 py-1 rounded-full text-white font-bold text-[10px] md:text-xs shadow-md hover:shadow-lg transition-all hover:scale-105"
                                             style={{ backgroundColor: '#006633', fontFamily: 'RobotoforLearning-Medium_0' }}
                                         >
-                                            СДАТЬ ЭКЗАМЕН
+                                            {REGISTRATION_REQUIRED_SKILLS.includes(skill.name) ? 'ПРОЙТИ РЕГИСТРАЦИЮ' : 'СДАТЬ ЭКЗАМЕН'}
                                         </button>
                                     )}
-                                    {!EXAM_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
+                                    {!EXAM_REQUIRED_SKILLS.includes(skill.name) && !REGISTRATION_REQUIRED_SKILLS.includes(skill.name) && skill.progress >= 90 && skill.progress < 100 && !isBlocked && (
                                         <>
                                             {skill.completionStatus === 'pending' ? (
                                                  <span className="text-[10px] md:text-xs font-bold text-hogwarts-gold bg-hogwarts-ink/50 px-2 py-1 rounded">
@@ -953,7 +959,7 @@ export const Dashboard: React.FC = () => {
                                     }}
                                   >
                                       <span className="text-[10px] uppercase text-hogwarts-ink/50 font-bold font-nexa text-center">Одобрено</span>
-                                      <span className="text-2xl md:text-3xl font-magical text-black">{skill.approvedCount || 0}</span>
+                                      <span className="text-2xl md:text-3xl font-magical text-black">{skill.globalApprovedCount || 0}</span>
                                   </div>
                                   <div 
                                     className="flex flex-col items-center"
@@ -1139,9 +1145,11 @@ export const Dashboard: React.FC = () => {
         onClose={() => {
             setSelectedSkill(null);
             setIsExamMode(false);
+            setIsRegistrationMode(false);
         }}
         viewAsUser={!showAdminInterface}
         isExam={isExamMode}
+        isRegistration={isRegistrationMode}
         isApplication={isApplicationMode}
       />
       

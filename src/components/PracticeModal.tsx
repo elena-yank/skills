@@ -8,10 +8,11 @@ interface PracticeModalProps {
   onClose: () => void;
   viewAsUser?: boolean;
   isExam?: boolean;
+  isRegistration?: boolean;
   isApplication?: boolean;
 }
 
-export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen, onClose, viewAsUser, isExam = false, isApplication = false }) => {
+export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen, onClose, viewAsUser, isExam = false, isRegistration = false, isApplication = false }) => {
   const [content, setContent] = useState('');
   const [postLink, setPostLink] = useState('');
   const { addPracticeLog } = useStore();
@@ -37,7 +38,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
           wordCount, 
           postLink, 
           viewAsUser, 
-          isApplication ? 'application' : (isExam ? 'exam' : 'practice')
+          isApplication ? 'application' : ((isExam || isRegistration) ? 'exam' : 'practice')
       );
       setContent('');
       setPostLink('');
@@ -51,12 +52,14 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
 
   const getTitle = () => {
       if (isApplication) return `Подать заявку на навык "${skillName}"`;
+      if (isRegistration) return `Регистрация: ${skillName}`;
       if (isExam) return `Экзамен: ${skillName}`;
       return `Практика: ${skillName}`;
   };
 
   const getDescription = () => {
       if (isApplication) return "Опиши свой план на сюжет. Зачем твоему персонажу этот навык, какие планы на его использование? Укажи всё, что считаешь нужным.";
+      if (isRegistration) return "Напишите здесь текст для прохождения регистрации...";
       if (isExam) return "Напишите здесь ответ на экзаменационное задание...";
       return "Напиши здесь свой пост... (минимум 200 слов)";
   };
@@ -64,6 +67,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({ skillName, isOpen,
   const getButtonText = () => {
       if (isSubmitting) return 'Сохранение...';
       if (isApplication) return 'Отправить заявку';
+      if (isRegistration) return 'Отправить на регистрацию';
       if (isExam) return 'Отправить на проверку';
       return 'СОХРАНИТЬ ПРОГРЕСС';
   };

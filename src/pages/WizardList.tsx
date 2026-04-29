@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, User, Search } from 'lucide-react';
+import { ArrowLeft, User, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import gryffindorEmblem from '../assets/gryffindor.svg';
@@ -22,6 +22,15 @@ export const WizardList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useStore();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    admins: true,
+    gryffindor: true,
+    slytherin: true,
+    hufflepuff: true,
+    ravenclaw: true,
+    md: true,
+    noAge: true
+  });
 
   useEffect(() => {
     const fetchWizards = async () => {
@@ -56,6 +65,167 @@ export const WizardList: React.FC = () => {
     .filter(wizard => 
       wizard.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+  const groupOrder = [
+    { key: 'admins', title: 'Администраторы' },
+    { key: 'gryffindor', title: 'Гриффиндор' },
+    { key: 'slytherin', title: 'Слизерин' },
+    { key: 'hufflepuff', title: 'Пуффендуй' },
+    { key: 'ravenclaw', title: 'Когтевран' },
+    { key: 'md', title: 'Магические деревни' },
+    { key: 'noAge', title: 'Без возраста' }
+  ] as const;
+
+  const getGroupKey = (wizard: UserType): typeof groupOrder[number]['key'] => {
+    if (wizard.role === 'admin') return 'admins';
+    if (wizard.faculty === 'Гриффиндор') return 'gryffindor';
+    if (wizard.faculty === 'Слизерин') return 'slytherin';
+    if (wizard.faculty === 'Пуффендуй') return 'hufflepuff';
+    if (wizard.faculty === 'Когтевран') return 'ravenclaw';
+    if (wizard.age === 'МД') return 'md';
+    if (!wizard.age || !wizard.age.trim()) return 'noAge';
+    return 'noAge';
+  };
+
+  const groupedWizards = filteredWizards.reduce<Record<string, UserType[]>>((acc, wizard) => {
+    const key = getGroupKey(wizard);
+    (acc[key] ||= []).push(wizard);
+    return acc;
+  }, {});
+
+  for (const key of Object.keys(groupedWizards)) {
+    groupedWizards[key].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderWizardCard = (wizard: UserType) => {
+    const isGryffindor = wizard.faculty === 'Гриффиндор';
+    const isRavenclaw = wizard.faculty === 'Когтевран';
+    const isHufflepuff = wizard.faculty === 'Пуффендуй';
+    const isSlytherin = wizard.faculty === 'Слизерин';
+    const isAdmin = wizard.role === 'admin';
+    const isMD = wizard.age === 'МД' && !isAdmin;
+    const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
+    const hasSpecialStyle = hasFaculty || isMD || isAdmin;
+
+    return (
+      <div 
+        key={wizard.id}
+        onClick={() => navigate(`/u/${wizard.name.replace(/\s+/g, '_')}`)}
+        className={`py-4 px-6 rounded-lg shadow-md border-2 cursor-pointer transition-all group relative overflow-hidden
+          ${isAdmin
+            ? 'bg-[#4c1d95] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+            : isGryffindor 
+              ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
+              : isRavenclaw
+                ? 'bg-[#0e1a40] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                : isHufflepuff
+                  ? 'bg-[#ecb939] border-hogwarts-ink hover:shadow-[0_0_20px_rgba(0,0,0,0.2)]'
+                  : isSlytherin
+                    ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                    : isMD
+                      ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
+                      : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
+      >
+        {hasSpecialStyle && (
+          <>
+            <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 
+               ${isMD ? 'from-white/100' : 'from-white/10'}`}></div>
+             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+               <div className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer
+                 ${isMD ? 'via-white/100' : 'via-white/20'}`}></div>
+             </div>
+          </>
+        )}
+
+        <div className={`absolute transition-all duration-300 z-10
+          ${isAdmin
+            ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
+            : hasSpecialStyle 
+              ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
+              : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}>
+          {isAdmin ? (
+            <img
+              src={mmEmblem}
+              alt="Администратор"
+              className="w-44 h-44 object-contain"
+              style={{ filter: 'brightness(0) saturate(100%) invert(8%) sepia(46%) saturate(7400%) hue-rotate(265deg) brightness(70%) contrast(110%)' }}
+            />
+          ) : isGryffindor ? (
+            <img src={gryffindorEmblem} alt="Gryffindor" className="w-32 h-32 object-contain" />
+          ) : isRavenclaw ? (
+            <img src={ravenclawEmblem} alt="Ravenclaw" className="w-32 h-32 object-contain" />
+          ) : isHufflepuff ? (
+            <img src={hufflepuffEmblem} alt="Hufflepuff" className="w-32 h-32 object-contain" />
+          ) : isSlytherin ? (
+            <img src={slytherinEmblem} alt="Slytherin" className="w-32 h-32 object-contain" />
+          ) : isMD ? (
+            <img src={mdEmblem} alt="MD" className="w-32 h-32 object-contain opacity-70 group-hover:opacity-100" />
+          ) : (
+            <User className="w-12 h-12 text-hogwarts-blue" />
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 mb-2 relative z-20">
+          <div className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden relative
+            ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
+              {wizard.avatar_url ? (
+                  <img 
+                      src={wizard.avatar_url} 
+                      alt={wizard.name} 
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(wizard.avatar_url!);
+                      }}
+                  />
+              ) : (
+                  <img src={avatarSvg} alt="Default Avatar" className="w-full h-full object-contain" />
+              )}
+          </div>
+          <div className="flex flex-col gap-1">
+              <h3 className={`text-xl font-bold font-seminaria transition-colors
+                ${hasSpecialStyle 
+                  ? isAdmin
+                    ? 'text-white group-hover:text-hogwarts-gold'
+                    : isHufflepuff || isMD
+                      ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
+                      : isSlytherin || isRavenclaw
+                        ? 'text-white group-hover:text-hogwarts-gold'
+                        : 'text-hogwarts-gold group-hover:text-white' 
+                  : 'text-hogwarts-ink group-hover:text-hogwarts-red'}`}>
+                  {wizard.name}
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
+                    hasSpecialStyle 
+                      ? isHufflepuff || isMD
+                        ? 'bg-black/5 text-hogwarts-ink border border-black/10'
+                        : 'bg-white/10 text-white border border-white/20' 
+                      : 'bg-hogwarts-blue/10 text-hogwarts-blue border border-hogwarts-blue/20'
+                  }`}>
+                      {wizard.race || 'Человек'}
+                  </span>
+                   {wizard.age && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
+                        hasSpecialStyle 
+                          ? isHufflepuff || isMD
+                            ? 'bg-black/5 text-hogwarts-ink border border-black/10'
+                            : 'bg-white/10 text-white border border-white/20' 
+                          : 'bg-hogwarts-bronze/10 text-hogwarts-bronze border border-hogwarts-bronze/20'
+                      }`}>
+                          {wizard.age === 'Школа' ? 'Хогвартс' : wizard.age}
+                      </span>
+                  )}
+              </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -124,132 +294,32 @@ export const WizardList: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-2 gap-4">
-            {filteredWizards.map((wizard) => {
-              const isGryffindor = wizard.faculty === 'Гриффиндор';
-              const isRavenclaw = wizard.faculty === 'Когтевран';
-              const isHufflepuff = wizard.faculty === 'Пуффендуй';
-              const isSlytherin = wizard.faculty === 'Слизерин';
-              const isAdmin = wizard.role === 'admin';
-              const isMD = wizard.age === 'МД' && !isAdmin;
-              const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
-              const hasSpecialStyle = hasFaculty || isMD || isAdmin;
-              
+          <div className="space-y-12">
+            {groupOrder.map(group => {
+              const items = groupedWizards[group.key] || [];
+              if (!items.length) return null;
+              const isOpen = expandedGroups[group.key] ?? true;
               return (
-                <div 
-                  key={wizard.id}
-                  onClick={() => navigate(`/u/${wizard.name.replace(/\s+/g, '_')}`)}
-                  className={`py-4 px-6 rounded-lg shadow-md border-2 cursor-pointer transition-all group relative overflow-hidden
-                    ${isAdmin
-                      ? 'bg-[#4c1d95] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                      : isGryffindor 
-                        ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
-                        : isRavenclaw
-                          ? 'bg-[#0e1a40] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                          : isHufflepuff
-                            ? 'bg-[#ecb939] border-hogwarts-ink hover:shadow-[0_0_20px_rgba(0,0,0,0.2)]'
-                            : isSlytherin
-                              ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
-                              : isMD
-                                ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
-                                : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
-                >
-                  {/* Glass effect gradient for Special Styles */}
-                  {hasSpecialStyle && (
-                    <>
-                      <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 
-                         ${isMD ? 'from-white/100' : 'from-white/10'}`}></div>
-                       {/* Animated Shimmer */}
-                       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-                         <div className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer
-                           ${isMD ? 'via-white/100' : 'via-white/20'}`}></div>
-                       </div>
-                    </>
+                <div key={group.key} className="relative">
+                  <button
+                    onClick={() => toggleGroup(group.key)}
+                    className="w-full flex items-center gap-4 mb-6 group text-left"
+                  >
+                    <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+                    <h2 className="text-2xl md:text-3xl font-seminaria font-bold text-hogwarts-gold group-hover:text-yellow-400 transition-colors flex items-center gap-2">
+                      {group.title}
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-hogwarts-gold/10 text-hogwarts-gold border border-hogwarts-gold/30 font-nexa">
+                        {items.length}
+                      </span>
+                      {isOpen ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
+                    </h2>
+                    <div className="h-[1px] bg-hogwarts-gold/50 flex-grow group-hover:bg-hogwarts-gold transition-colors"></div>
+                  </button>
+                  {isOpen && (
+                    <div className="grid grid-cols-1 min-[480px]:grid-cols-2 md:grid-cols-2 gap-4 animate-fadeIn">
+                      {items.map(renderWizardCard)}
+                    </div>
                   )}
-
-                  {/* Special Emblem / User Icon */}
-                  <div className={`absolute transition-all duration-300 z-10
-                    ${isAdmin
-                      ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
-                      : hasSpecialStyle 
-                        ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
-                        : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}>
-                    {isAdmin ? (
-                      <img
-                        src={mmEmblem}
-                        alt="Администратор"
-                        className="w-44 h-44 object-contain"
-                        style={{ filter: 'brightness(0) saturate(100%) invert(8%) sepia(46%) saturate(7400%) hue-rotate(265deg) brightness(70%) contrast(110%)' }}
-                      />
-                    ) : isGryffindor ? (
-                      <img src={gryffindorEmblem} alt="Gryffindor" className="w-32 h-32 object-contain" />
-                    ) : isRavenclaw ? (
-                      <img src={ravenclawEmblem} alt="Ravenclaw" className="w-32 h-32 object-contain" />
-                    ) : isHufflepuff ? (
-                      <img src={hufflepuffEmblem} alt="Hufflepuff" className="w-32 h-32 object-contain" />
-                    ) : isSlytherin ? (
-                      <img src={slytherinEmblem} alt="Slytherin" className="w-32 h-32 object-contain" />
-                    ) : isMD ? (
-                      <img src={mdEmblem} alt="MD" className="w-32 h-32 object-contain opacity-70 group-hover:opacity-100" />
-                    ) : (
-                      <User className="w-12 h-12 text-hogwarts-blue" />
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-4 mb-2 relative z-20">
-                    <div className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden relative
-                      ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
-                        {wizard.avatar_url ? (
-                            <img 
-                                src={wizard.avatar_url} 
-                                alt={wizard.name} 
-                                className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedImage(wizard.avatar_url!);
-                                }}
-                            />
-                        ) : (
-                            <img src={avatarSvg} alt="Default Avatar" className="w-full h-full object-contain" />
-                        )}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <h3 className={`text-xl font-bold font-seminaria transition-colors
-                          ${hasSpecialStyle 
-                            ? isAdmin
-                              ? 'text-white group-hover:text-hogwarts-gold'
-                              : isHufflepuff || isMD
-                                ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
-                                : isSlytherin || isRavenclaw
-                                  ? 'text-white group-hover:text-hogwarts-gold'
-                                  : 'text-hogwarts-gold group-hover:text-white' 
-                            : 'text-hogwarts-ink group-hover:text-hogwarts-red'}`}>
-                            {wizard.name}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
-                              hasSpecialStyle 
-                                ? isHufflepuff || isMD
-                                  ? 'bg-black/5 text-hogwarts-ink border border-black/10'
-                                  : 'bg-white/10 text-white border border-white/20' 
-                                : 'bg-hogwarts-blue/10 text-hogwarts-blue border border-hogwarts-blue/20'
-                            }`}>
-                                {wizard.race || 'Человек'}
-                            </span>
-                             {wizard.age && (
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
-                                  hasSpecialStyle 
-                                    ? isHufflepuff || isMD
-                                      ? 'bg-black/5 text-hogwarts-ink border border-black/10'
-                                      : 'bg-white/10 text-white border border-white/20' 
-                                    : 'bg-hogwarts-bronze/10 text-hogwarts-bronze border border-hogwarts-bronze/20'
-                                }`}>
-                                    {wizard.age === 'Школа' ? 'Хогвартс' : wizard.age}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                  </div>
                 </div>
               );
             })}

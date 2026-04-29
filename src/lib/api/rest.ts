@@ -131,6 +131,22 @@ export const restApi: ApiClient = {
       if (!res.ok) throw new Error(data.error);
       return data as Record<string, number>;
     },
+    approvedCounts: async (userId) => {
+      const res = await fetch(`${API_URL}/admin/logs/approved-counts?user_id=${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as Record<string, number>;
+    },
+    updateContent: async (id, userId, content, wordCount) => {
+      const res = await fetch(`${API_URL}/logs/${id}/content`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, content, word_count: wordCount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as PracticeLog;
+    },
     list: async (userId, skillName) => {
       const params = new URLSearchParams({ user_id: userId });
       if (skillName) params.append('skill_name', skillName);

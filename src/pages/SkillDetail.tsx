@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen, Upload } from 'lucide-react';
+import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen, Upload, Pencil } from 'lucide-react';
 import { useStore } from '../store';
-import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS } from '../lib/skillUtils';
+import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS, REGISTRATION_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import owlSvg from '../assets/owl.svg';
@@ -33,15 +33,19 @@ const LogItem: React.FC<{
     log: Log; 
     onDelete: (id: string) => void; 
     isOwner: boolean; 
+    onEditContent: (id: string, content: string, wordCount: number) => void;
     onUpdateStatus: (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => void;
     indexInTotal?: number;
     totalNonRejected?: number;
-}> = ({ log, onDelete, isOwner, onUpdateStatus, indexInTotal, totalNonRejected }) => {
+}> = ({ log, onDelete, isOwner, onEditContent, onUpdateStatus, indexInTotal, totalNonRejected }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editedContent, setEditedContent] = useState(log.content);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const { user } = useStore();
   const contentRef = useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -138,10 +142,12 @@ const LogItem: React.FC<{
   // Logic for "Complete Study" button
   const threshold = SKILL_THRESHOLDS[log.skill_name] || 100;
   const approvedCount = log.user_approved_count || 0;
-  const isExamRequired = EXAM_REQUIRED_SKILLS.includes(log.skill_name);
+  const isRegistrationRequired = REGISTRATION_REQUIRED_SKILLS.includes(log.skill_name);
+  const isExamRequired = EXAM_REQUIRED_SKILLS.includes(log.skill_name) || isRegistrationRequired;
   const isAlreadyCompleted = log.has_completed_status;
   const isExamLog = (log.type === 'exam') || (log.status === 'exam_passed') || (log.moderator_proposed_status === 'exam_passed');
-  const isExamSkillPage = EXAM_REQUIRED_SKILLS.includes(log.skill_name);
+  const isRegistrationLog = isRegistrationRequired && log.type === 'exam';
+  const canEdit = isOwner && log.type === 'practice';
   
   // Show button if user reached threshold (90%), exam is not required, and not already completed
   const showCompleteStudy = canModerate && !isExamRequired && approvedCount >= threshold && !isAlreadyCompleted;
@@ -171,6 +177,41 @@ const LogItem: React.FC<{
     setRejectionReason('');
   };
 
+  const countWords = (text: string) => {
+    const cleaned = text.trim();
+    if (!cleaned) return 0;
+    return cleaned.split(/\s+/).filter(Boolean).length;
+  };
+
+  const openEdit = () => {
+    setEditedContent(log.content);
+    setIsExpanded(true);
+    setShowEditModal(true);
+  };
+
+  const closeEdit = () => {
+    setShowEditModal(false);
+    setEditedContent(log.content);
+  };
+
+  const saveEdit = async () => {
+    if (!user?.id) return;
+    const nextContent = editedContent;
+    if (!nextContent.trim()) return;
+
+    setIsSavingEdit(true);
+    try {
+      const wordCount = countWords(nextContent);
+      const updated = await api.logs.updateContent(log.id, user.id, nextContent, wordCount);
+      onEditContent(log.id, updated.content, updated.word_count);
+      setShowEditModal(false);
+    } catch (e: any) {
+      alert(e?.message || 'Не удалось сохранить изменения.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const isGranted = log.status === 'exam_passed' && log.word_count === 0 && !!log.moderator_approval_id;
 
   return (
@@ -181,7 +222,7 @@ const LogItem: React.FC<{
       {!canModerate && log.status === 'pending' && (
           <div className="absolute inset-0 bg-white/60 z-30 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
              <div className="bg-[#D3A625] text-hogwarts-red px-6 py-3 rounded-lg shadow-xl font-magical font-bold text-xl border-2 border-hogwarts-red pointer-events-auto z-40 opacity-100 text-center mx-4">
-                {log.type === 'exam' ? 'Экзаменационная работа ожидает проверки' : 'Текст ожидает проверку'}
+                {log.type === 'exam' ? (isRegistrationLog ? 'Регистрация ожидает проверки' : 'Экзаменационная работа ожидает проверки') : 'Текст ожидает проверку'}
              </div>
           </div>
       )}
@@ -242,12 +283,46 @@ const LogItem: React.FC<{
         </div>
       )}
 
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-3xl h-[60vh] md:h-[55vh] shadow-2xl border-2 border-hogwarts-gold flex flex-col">
+            <div className="p-4 md:p-6 border-b border-hogwarts-bronze">
+              <h3 className="text-xl font-serif font-bold text-hogwarts-ink">Редактировать пост</h3>
+            </div>
+            <div className="p-4 md:p-6 flex-1 overflow-hidden">
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="w-full h-full p-3 border-2 border-hogwarts-bronze rounded-lg font-century focus:outline-none focus:border-hogwarts-gold resize-none"
+                placeholder="Введите обновлённый текст..."
+              />
+            </div>
+            <div className="p-4 md:p-6 border-t border-hogwarts-bronze flex flex-col sm:flex-row gap-3 justify-end">
+              <button
+                onClick={closeEdit}
+                disabled={isSavingEdit}
+                className="w-full sm:w-auto px-4 py-2 rounded border border-hogwarts-bronze text-hogwarts-ink hover:bg-hogwarts-parchment transition-colors font-serif disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={isSavingEdit || !editedContent.trim() || editedContent === log.content}
+                className="w-full sm:w-auto px-4 py-2 rounded bg-hogwarts-green text-hogwarts-gold font-bold hover:bg-green-900 transition-colors shadow-md border border-hogwarts-gold font-serif disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-hogwarts-bronze pb-4 relative z-40 gap-4 md:gap-0">
         <div className="flex flex-col gap-1 w-full md:w-auto">
             <div className="md:hidden flex items-center gap-2 text-hogwarts-ink/70 font-bold font-serif flex-wrap">
                 {isExamLog && (
                     <span className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
-                        Экзамен
+                        {isRegistrationLog ? 'Регистрация' : 'Экзамен'}
                     </span>
                 )}
                 {!isGranted && (
@@ -272,14 +347,27 @@ const LogItem: React.FC<{
                     Ссылка
                     </a>
                 )}
-                {(isOwner || canModerate) && (
-                    <button 
-                        onClick={handleDelete}
-                        className="ml-auto text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1"
-                        title="Уничтожить свиток"
-                    >
-                        <Trash2 className="w-5 h-5" />
-                    </button>
+                {(canEdit || isOwner || canModerate) && (
+                  <div className="ml-auto flex items-center gap-2">
+                    {canEdit && (
+                      <button
+                        onClick={openEdit}
+                        className="text-hogwarts-ink/50 hover:text-hogwarts-gold transition-colors p-1"
+                        title="Редактировать"
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                    )}
+                    {(isOwner || canModerate) && (
+                      <button 
+                          onClick={handleDelete}
+                          className="text-hogwarts-ink/50 hover:text-red-600 transition-colors p-1"
+                          title="Уничтожить свиток"
+                      >
+                          <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
                 )}
             </div>
 
@@ -300,7 +388,7 @@ const LogItem: React.FC<{
                 <>
                     {isExamLog && (
                         <span className="hidden md:inline-flex px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border border-hogwarts-purple text-hogwarts-purple bg-white">
-                            Экзамен
+                            {isRegistrationLog ? 'Регистрация' : 'Экзамен'}
                         </span>
                     )}
                     <Calendar className="w-4 h-4" />
@@ -367,6 +455,15 @@ const LogItem: React.FC<{
                 <div className="bg-hogwarts-green/10 text-hogwarts-green px-3 py-1 rounded-full text-sm font-bold border border-hogwarts-green/30 font-serif">
                 {log.word_count} слов
                 </div>
+            )}
+            {canEdit && (
+                <button 
+                    onClick={openEdit}
+                    className="text-hogwarts-ink/50 hover:text-hogwarts-gold transition-colors p-1"
+                    title="Редактировать"
+                >
+                    <Pencil className="w-5 h-5" />
+                </button>
             )}
             {(isOwner || canModerate) && (
                 <button 
@@ -510,7 +607,7 @@ const LogItem: React.FC<{
                                             className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
                                         >
                                             <GraduationCap className="w-4 h-4" />
-                                            Экзамен сдан
+                                            {isRegistrationLog ? 'Регистрация пройдена' : 'Экзамен сдан'}
                                         </button>
                                     )}
                                      {log.moderator_proposed_status === 'study_completed' && (
@@ -545,10 +642,10 @@ const LogItem: React.FC<{
                                         <button
                                             onClick={() => onUpdateStatus(log.id, 'exam_passed')}
                                             className="flex items-center gap-1 px-4 py-2 rounded-lg bg-[#006633] text-white shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-gold whitespace-nowrap"
-                                            title="Экзамен сдан: Прогресс станет 100%"
+                                            title={isRegistrationLog ? "Регистрация пройдена: Прогресс станет 100%" : "Экзамен сдан: Прогресс станет 100%"}
                                         >
                                             <GraduationCap className="w-4 h-4" />
-                                            Экзамен сдан
+                                            {isRegistrationLog ? 'Регистрация пройдена' : 'Экзамен сдан'}
                                         </button>
                                     )}
 
@@ -573,7 +670,7 @@ const LogItem: React.FC<{
             <div className="flex items-center gap-2">
                 <div className={`font-bold flex items-center gap-2 px-4 py-2 ${log.status === 'approved' ? 'text-hogwarts-green' : 'text-[#006633]'}`}>
                     {log.status === 'approved' ? <Check className="w-5 h-5" /> : <GraduationCap className="w-5 h-5" />}
-                    {log.status === 'approved' ? 'Одобрено' : 'Экзамен сдан'}
+                    {log.status === 'approved' ? 'Одобрено' : (isRegistrationLog ? 'Регистрация пройдена' : 'Экзамен сдан')}
                 </div>
             </div>
         )}
@@ -704,6 +801,10 @@ export const SkillDetail: React.FC = () => {
     }
   };
 
+  const handleEditLogContent = (id: string, content: string, wordCount: number) => {
+    setLogs(prevLogs => prevLogs.map(l => l.id === id ? { ...l, content, word_count: wordCount } : l));
+  };
+
   const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected' | 'exam_passed' | 'study_completed', rejectionReason?: string) => {
     const logToUpdate = logs.find(log => log.id === id);
     if (!logToUpdate) return;
@@ -724,11 +825,55 @@ export const SkillDetail: React.FC = () => {
          setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
     }
 
+    const skillNameDecoded = decodeURIComponent(skillName || '');
+    const canUpdateCounters = !shouldKeepInList && (user?.role === 'admin' || user?.role === 'moderator');
+    let deltaPending = 0;
+    let deltaApproved = 0;
+    if (canUpdateCounters) {
+      if (viewMode === 'pending') {
+        if (status === 'rejected' || status === 'approved' || status === 'exam_passed' || status === 'study_completed') {
+          deltaPending = -1;
+        }
+        if (status === 'approved') {
+          deltaApproved = 1;
+        }
+      } else if (viewMode === 'approved') {
+        if (status === 'rejected') {
+          deltaApproved = -1;
+        }
+      }
+
+      if (deltaPending !== 0 || deltaApproved !== 0) {
+        useStore.setState(state => ({
+          skills: state.skills.map(s => {
+            if (s.name !== skillNameDecoded) return s;
+            return {
+              ...s,
+              pendingCount: Math.max(0, (s.pendingCount || 0) + deltaPending),
+              globalApprovedCount: Math.max(0, (s.globalApprovedCount || 0) + deltaApproved)
+            };
+          })
+        }));
+      }
+    }
+
     try {
         await updateLogStatus(id, status, rejectionReason);
     } catch (e: any) {
         console.error("Failed to update status", e);
         alert(e.message || "Не удалось обновить статус свитка.");
+        if (canUpdateCounters && (deltaPending !== 0 || deltaApproved !== 0)) {
+          useStore.setState(state => ({
+            skills: state.skills.map(s => {
+              if (s.name !== skillNameDecoded) return s;
+              return {
+                ...s,
+                pendingCount: Math.max(0, (s.pendingCount || 0) - deltaPending),
+                globalApprovedCount: Math.max(0, (s.globalApprovedCount || 0) - deltaApproved)
+              };
+            })
+          }));
+        }
         // Rollback
         if (shouldKeepInList) {
              setLogs(prevLogs => prevLogs.map(l => l.id === id ? logToUpdate : l));
@@ -1215,6 +1360,7 @@ export const SkillDetail: React.FC = () => {
                 log={log} 
                 onDelete={handleDeleteLog}
                 isOwner={isOwner}
+                onEditContent={handleEditLogContent}
                 onUpdateStatus={handleUpdateStatus}
                 indexInTotal={logIndexMap.get(log.id)}
                 totalNonRejected={totalNonRejected}
