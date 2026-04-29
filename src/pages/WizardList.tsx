@@ -117,7 +117,7 @@ export const WizardList: React.FC = () => {
         onClick={() => navigate(`/u/${wizard.name.replace(/\s+/g, '_')}`)}
         className={`py-4 px-6 rounded-lg shadow-md border-2 cursor-pointer transition-all group relative overflow-hidden
           ${isAdmin
-            ? 'bg-[#4c1d95] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+            ? 'bg-[#e2e8f0] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
             : isGryffindor 
               ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
               : isRavenclaw
@@ -127,32 +127,44 @@ export const WizardList: React.FC = () => {
                   : isSlytherin
                     ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
                     : isMD
-                      ? 'bg-[#cbd5e1] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
+                      ? 'bg-[#63248e] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
                       : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
       >
         {hasSpecialStyle && (
           <>
-            <div className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 
-               ${isMD ? 'from-white/100' : 'from-white/10'}`}></div>
-             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-               <div className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer
-                 ${isMD ? 'via-white/100' : 'via-white/20'}`}></div>
-             </div>
+            {!isMD && (
+              <div
+                className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 ${
+                  isAdmin ? 'from-white/35' : 'from-white/10'
+                }`}
+              />
+            )}
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+              <div
+                className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer ${
+                  isAdmin ? 'via-white/90 mix-blend-screen' : isMD ? 'via-white/40' : 'via-white/20'
+                }`}
+              />
+            </div>
           </>
         )}
 
-        <div className={`absolute transition-all duration-300 z-10
-          ${isAdmin
-            ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
-            : hasSpecialStyle 
-              ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
-              : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}>
+        <div
+          className={`absolute transition-all duration-300 ${isMD ? 'z-30' : 'z-10'}
+            ${isAdmin
+              ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
+              : isMD
+                ? 'p-0 -right-4 -top-4 opacity-100 group-hover:-right-2 group-hover:-top-2'
+                : hasSpecialStyle 
+                  ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
+                  : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}
+        >
           {isAdmin ? (
             <img
               src={mmEmblem}
               alt="Администратор"
               className="w-44 h-44 object-contain"
-              style={{ filter: 'brightness(0) saturate(100%) invert(8%) sepia(46%) saturate(7400%) hue-rotate(265deg) brightness(70%) contrast(110%)' }}
+              style={{ filter: 'brightness(0) saturate(100%) invert(63%) sepia(24%) saturate(722%) hue-rotate(353deg) brightness(92%) contrast(90%)' }}
             />
           ) : isGryffindor ? (
             <img src={gryffindorEmblem} alt="Gryffindor" className="w-32 h-32 object-contain" />
@@ -171,7 +183,7 @@ export const WizardList: React.FC = () => {
 
         <div className="flex items-center gap-4 mb-2 relative z-20">
           <div className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden relative
-            ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
+            ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD || isAdmin ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
               {wizard.avatar_url ? (
                   <img 
                       src={wizard.avatar_url} 
@@ -189,10 +201,10 @@ export const WizardList: React.FC = () => {
           <div className="flex flex-col gap-1">
               <h3 className={`text-xl font-bold font-seminaria transition-colors
                 ${hasSpecialStyle 
-                  ? isAdmin
-                    ? 'text-white group-hover:text-hogwarts-gold'
-                    : isHufflepuff || isMD
-                      ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
+                  ? isMD
+                      ? 'text-hogwarts-gold group-hover:text-white'
+                      : isHufflepuff || isAdmin
+                        ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
                       : isSlytherin || isRavenclaw
                         ? 'text-white group-hover:text-hogwarts-gold'
                         : 'text-hogwarts-gold group-hover:text-white' 
@@ -202,9 +214,11 @@ export const WizardList: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                     hasSpecialStyle 
-                      ? isHufflepuff || isMD
-                        ? 'bg-black/5 text-hogwarts-ink border border-black/10'
-                        : 'bg-white/10 text-white border border-white/20' 
+                      ? isMD
+                        ? 'bg-white/10 text-white border border-white/20'
+                        : isHufflepuff || isAdmin
+                          ? 'bg-black/5 text-hogwarts-ink border border-black/10'
+                          : 'bg-white/10 text-white border border-white/20' 
                       : 'bg-hogwarts-blue/10 text-hogwarts-blue border border-hogwarts-blue/20'
                   }`}>
                       {wizard.race || 'Человек'}
@@ -212,9 +226,11 @@ export const WizardList: React.FC = () => {
                    {wizard.age && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full font-nexa ${
                         hasSpecialStyle 
-                          ? isHufflepuff || isMD
-                            ? 'bg-black/5 text-hogwarts-ink border border-black/10'
-                            : 'bg-white/10 text-white border border-white/20' 
+                          ? isMD
+                            ? 'bg-white/10 text-white border border-white/20'
+                            : isHufflepuff || isAdmin
+                              ? 'bg-black/5 text-hogwarts-ink border border-black/10'
+                              : 'bg-white/10 text-white border border-white/20' 
                           : 'bg-hogwarts-bronze/10 text-hogwarts-bronze border border-hogwarts-bronze/20'
                       }`}>
                           {wizard.age === 'Школа' ? 'Хогвартс' : wizard.age}
