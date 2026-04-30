@@ -127,7 +127,7 @@ export const WizardList: React.FC = () => {
                   : isSlytherin
                     ? 'bg-[#1a472a] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
                     : isMD
-                      ? 'bg-[#63248e] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
+                      ? 'bg-[#592080] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
                       : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
       >
         {hasSpecialStyle && (
@@ -139,10 +139,10 @@ export const WizardList: React.FC = () => {
                 }`}
               />
             )}
-            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+            <div className={`absolute inset-0 pointer-events-none overflow-hidden ${isMD ? 'z-[15]' : 'z-0'}`}>
               <div
                 className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer ${
-                  isAdmin ? 'via-white/90 mix-blend-screen' : isMD ? 'via-white/40' : 'via-white/20'
+                  isAdmin ? 'via-white/90 mix-blend-screen' : isMD ? 'via-white/25' : 'via-white/20'
                 }`}
               />
             </div>
@@ -150,7 +150,7 @@ export const WizardList: React.FC = () => {
         )}
 
         <div
-          className={`absolute transition-all duration-300 ${isMD ? 'z-30' : 'z-10'}
+          className={`absolute transition-all duration-300 z-10
             ${isAdmin
               ? 'p-0 -right-16 -top-10 opacity-60 group-hover:opacity-80 group-hover:-right-12 group-hover:-top-6'
               : isMD
