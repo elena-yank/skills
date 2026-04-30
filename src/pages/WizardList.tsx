@@ -108,6 +108,8 @@ export const WizardList: React.FC = () => {
     const isSlytherin = wizard.faculty === 'Слизерин';
     const isAdmin = wizard.role === 'admin';
     const isMD = wizard.age === 'МД' && !isAdmin;
+    const isDarkFaculty = isGryffindor || isSlytherin || isRavenclaw;
+    const isLightFaculty = isHufflepuff;
     const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
     const hasSpecialStyle = hasFaculty || isMD || isAdmin;
 
@@ -135,14 +137,22 @@ export const WizardList: React.FC = () => {
             {!isMD && (
               <div
                 className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 ${
-                  isAdmin ? 'from-white/35' : 'from-white/10'
+                  isAdmin ? 'from-white/45' : isDarkFaculty ? 'from-white/12' : isLightFaculty ? 'from-white/15' : 'from-white/5'
                 }`}
               />
             )}
-            <div className={`absolute inset-0 pointer-events-none overflow-hidden ${isMD ? 'z-[15]' : 'z-0'}`}>
+            <div className={`absolute inset-0 pointer-events-none overflow-hidden ${isMD ? 'z-30' : 'z-0'}`}>
               <div
                 className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer ${
-                  isAdmin ? 'via-white/90 mix-blend-screen' : isMD ? 'via-white/25' : 'via-white/20'
+                  isAdmin
+                    ? 'via-white/95 mix-blend-screen'
+                    : isMD
+                      ? 'via-white/45 mix-blend-screen opacity-70'
+                      : isDarkFaculty
+                        ? 'via-white/25 mix-blend-overlay'
+                        : isLightFaculty
+                          ? 'via-white/35 mix-blend-overlay'
+                          : 'via-white/12'
                 }`}
               />
             </div>
@@ -175,7 +185,7 @@ export const WizardList: React.FC = () => {
           ) : isSlytherin ? (
             <img src={slytherinEmblem} alt="Slytherin" className="w-32 h-32 object-contain" />
           ) : isMD ? (
-            <img src={mdEmblem} alt="MD" className="w-32 h-32 object-contain opacity-70 group-hover:opacity-100" />
+            <img src={mdEmblem} alt="MD" className="w-32 h-32 object-contain opacity-65 group-hover:opacity-80" />
           ) : (
             <User className="w-12 h-12 text-hogwarts-blue" />
           )}
