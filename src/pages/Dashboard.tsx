@@ -194,12 +194,26 @@ export const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.role === 'admin' || user?.role === 'moderator') {
-      fetchSkills(!adminView);
-    } else {
-      fetchSkills();
-    }
-  }, [fetchSkills, adminView, user?.role]);
+    if (!user) return;
+
+    const run = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (user.role === 'admin' || user.role === 'moderator') {
+        fetchSkills(!adminView);
+      } else {
+        fetchSkills();
+      }
+    };
+
+    run();
+    window.addEventListener('focus', run);
+    document.addEventListener('visibilitychange', run);
+
+    return () => {
+      window.removeEventListener('focus', run);
+      document.removeEventListener('visibilitychange', run);
+    };
+  }, [fetchSkills, adminView, user?.id, user?.role]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -515,6 +529,19 @@ export const Dashboard: React.FC = () => {
     // Check Race restrictions FIRST (requested priority)
     if (user?.race) {
         const race = user.race.toLowerCase();
+
+        const blockedForDhampirs = [
+            'Телесный патронус',
+            'Самостоятельная левитация',
+            'Анимагия',
+            'Мортимагия',
+            'Беспалочковая магия',
+            'Метаморфомагия',
+            'Провидение'
+        ];
+        if (race.includes('дампир') && blockedForDhampirs.includes(skillName)) {
+            return 'ДАМПИРАМ';
+        }
         
         // Animagi restrictions
         if (skillName === 'Анимагия') {
@@ -542,7 +569,7 @@ export const Dashboard: React.FC = () => {
             'Некромантия'
         ];
         
-        // Vampire & Dhampir restrictions
+        // Vampire restrictions
         const blockedForVampires = [
             'Магия пространства', 
             'Телесный патронус', 
@@ -550,9 +577,8 @@ export const Dashboard: React.FC = () => {
             'Метаморфомагия', 
             'Провидение'
         ];
-        if (blockedForVampires.includes(skillName)) {
-            if (race.includes('вампир')) return 'ВАМПИРАМ';
-            if (race.includes('дампир')) return 'ДАМПИРАМ';
+        if (race.includes('вампир') && blockedForVampires.includes(skillName)) {
+            return 'ВАМПИРАМ';
         }
 
         if (blockedForGiants.includes(skillName)) {

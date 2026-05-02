@@ -52,6 +52,19 @@ export const PublicProfile: React.FC = () => {
     // Check Race restrictions FIRST (requested priority)
     if (user?.race) {
         const race = user.race.toLowerCase();
+
+        const blockedForDhampirs = [
+            'Телесный патронус',
+            'Самостоятельная левитация',
+            'Анимагия',
+            'Мортимагия',
+            'Беспалочковая магия',
+            'Метаморфомагия',
+            'Провидение'
+        ];
+        if (race.includes('дампир') && blockedForDhampirs.includes(skillName)) {
+            return 'ДАМПИРАМ';
+        }
         
         // Animagi restrictions
         if (skillName === 'Анимагия') {
@@ -79,7 +92,7 @@ export const PublicProfile: React.FC = () => {
             'Некромантия'
         ];
         
-        // Vampire & Dhampir restrictions
+        // Vampire restrictions
         const blockedForVampires = [
             'Магия пространства', 
             'Телесный патронус', 
@@ -87,9 +100,8 @@ export const PublicProfile: React.FC = () => {
             'Метаморфомагия', 
             'Провидение'
         ];
-        if (blockedForVampires.includes(skillName)) {
-            if (race.includes('вампир')) return 'ВАМПИРАМ';
-            if (race.includes('дампир')) return 'ДАМПИРАМ';
+        if (race.includes('вампир') && blockedForVampires.includes(skillName)) {
+            return 'ВАМПИРАМ';
         }
 
         if (blockedForGiants.includes(skillName)) {

@@ -9,6 +9,7 @@ export interface User {
   race?: string;
   age?: string;
   faculty?: string;
+  is_school_admin?: boolean;
 }
 
 export interface PracticeLog {
@@ -102,7 +103,7 @@ export interface ApiClient {
   admin: {
     listUsers: () => Promise<User[]>;
     createUser: (user: Pick<User, 'name' | 'role'> & { password: string }) => Promise<User>;
-    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills'>>) => Promise<void>;
+    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills' | 'is_school_admin'>>) => Promise<void>;
     deleteUser: (id: string) => Promise<void>;
     grantSkill: (userId: string, skillName: string, reason: string, moderatorId: string) => Promise<void>;
   };

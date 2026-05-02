@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.wizards (
     name TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
+    is_school_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

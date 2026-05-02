@@ -12,6 +12,7 @@ export interface Wizard {
   race?: string;
   age?: string;
   faculty?: string;
+  is_school_admin?: boolean;
 }
 
 export interface Skill {
@@ -38,6 +39,7 @@ interface AppState {
   notifications: Notification[];
   isLoading: boolean;
   setUser: (user: Wizard | null) => void;
+  refreshUser: () => Promise<void>;
   updateProfile: (race: string, age: string, faculty?: string) => Promise<void>;
   fetchSkills: (viewAsUser?: boolean) => Promise<void>;
   fetchNotifications: () => Promise<void>;
@@ -124,6 +126,18 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.removeItem(STORAGE_KEY);
     }
     set({ user });
+  },
+
+  refreshUser: async () => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      const latest = await api.auth.getUserByName(user.name);
+      if (!latest) return;
+      get().setUser({ ...user, ...latest });
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
   },
 
   updateProfile: async (race, age, faculty) => {

@@ -22,6 +22,9 @@ export const DatabaseAdmin: React.FC = () => {
   const [isSavingSkill, setIsSavingSkill] = useState<Record<string, boolean>>({});
   const [isSkillsSectionOpen, setIsSkillsSectionOpen] = useState(false);
 
+  const [isSchoolAdminSectionOpen, setIsSchoolAdminSectionOpen] = useState(false);
+  const [isSavingSchoolAdmin, setIsSavingSchoolAdmin] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     fetchSkillMetadata();
     fetchRaceRequests();
@@ -114,6 +117,19 @@ export const DatabaseAdmin: React.FC = () => {
       } finally {
           setIsSavingSkill(prev => ({ ...prev, [skillName]: false }));
       }
+  };
+
+  const toggleSchoolAdmin = async (targetUser: User, nextValue: boolean) => {
+    setIsSavingSchoolAdmin(prev => ({ ...prev, [targetUser.id]: true }));
+    try {
+      await api.admin?.updateUser(targetUser.id, { is_school_admin: nextValue });
+      setUsers(prev => prev.map(u => (u.id === targetUser.id ? { ...u, is_school_admin: nextValue } : u)));
+    } catch (err) {
+      console.error('Error updating school admin flag:', err);
+      alert('Ошибка при обновлении статуса администрации школы');
+    } finally {
+      setIsSavingSchoolAdmin(prev => ({ ...prev, [targetUser.id]: false }));
+    }
   };
 
   // New user form state
@@ -494,6 +510,47 @@ export const DatabaseAdmin: React.FC = () => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+            <button 
+                onClick={() => setIsSchoolAdminSectionOpen(!isSchoolAdminSectionOpen)}
+                className="w-full flex items-center justify-between text-left group"
+            >
+                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 group-hover:text-hogwarts-gold transition-colors">
+                    Администрация школы
+                </h2>
+                {isSchoolAdminSectionOpen ? (
+                    <ChevronUp className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                ) : (
+                    <ChevronDown className="w-6 h-6 text-gray-500 group-hover:text-hogwarts-gold transition-colors" />
+                )}
+            </button>
+
+            {isSchoolAdminSectionOpen && (
+                <div className="mt-6 animate-in fade-in slide-in-from-top-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                        {[...users]
+                          .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+                          .map((u) => (
+                            <label
+                              key={u.id}
+                              className="flex items-center gap-2 px-3 py-2 rounded border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
+                              title={u.name}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!u.is_school_admin}
+                                disabled={!!isSavingSchoolAdmin[u.id]}
+                                onChange={(e) => toggleSchoolAdmin(u, e.target.checked)}
+                                className="rounded border-gray-300 text-hogwarts-gold focus:ring-hogwarts-gold"
+                              />
+                              <span className="text-sm text-gray-800 truncate">{u.name}</span>
+                            </label>
+                          ))}
+                    </div>
                 </div>
             )}
         </div>

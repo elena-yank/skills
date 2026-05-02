@@ -10,6 +10,7 @@ import hufflepuffEmblem from '../assets/hufflepuff.svg';
 import slytherinEmblem from '../assets/slytherin.svg';
 import mdEmblem from '../assets/md.svg';
 import mmEmblem from '../assets/mm.svg';
+import hogwartsEmblem from '../assets/hogwarts.svg';
 import avatarSvg from '../assets/avatar.svg';
 import { User as UserType } from '../lib/api/types';
 import { useStore } from '../store';
@@ -24,6 +25,7 @@ export const WizardList: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     admins: true,
+    schoolStaff: true,
     gryffindor: true,
     slytherin: true,
     hufflepuff: true,
@@ -68,6 +70,7 @@ export const WizardList: React.FC = () => {
 
   const groupOrder = [
     { key: 'admins', title: 'Администраторы' },
+    { key: 'schoolStaff', title: 'Сотрудники школы' },
     { key: 'gryffindor', title: 'Гриффиндор' },
     { key: 'slytherin', title: 'Слизерин' },
     { key: 'hufflepuff', title: 'Пуффендуй' },
@@ -78,6 +81,7 @@ export const WizardList: React.FC = () => {
 
   const getGroupKey = (wizard: UserType): typeof groupOrder[number]['key'] => {
     if (wizard.role === 'admin') return 'admins';
+    if (wizard.is_school_admin) return 'schoolStaff';
     if (wizard.faculty === 'Гриффиндор') return 'gryffindor';
     if (wizard.faculty === 'Слизерин') return 'slytherin';
     if (wizard.faculty === 'Пуффендуй') return 'hufflepuff';
@@ -107,19 +111,22 @@ export const WizardList: React.FC = () => {
     const isHufflepuff = wizard.faculty === 'Пуффендуй';
     const isSlytherin = wizard.faculty === 'Слизерин';
     const isAdmin = wizard.role === 'admin';
-    const isMD = wizard.age === 'МД' && !isAdmin;
+    const isSchoolAdmin = !!wizard.is_school_admin;
+    const isMD = wizard.age === 'МД' && !isAdmin && !isSchoolAdmin;
     const isDarkFaculty = isGryffindor || isSlytherin || isRavenclaw;
     const isLightFaculty = isHufflepuff;
     const hasFaculty = isGryffindor || isRavenclaw || isHufflepuff || isSlytherin;
-    const hasSpecialStyle = hasFaculty || isMD || isAdmin;
+    const hasSpecialStyle = hasFaculty || isMD || isAdmin || isSchoolAdmin;
 
     return (
       <div 
         key={wizard.id}
         onClick={() => navigate(`/u/${wizard.name.replace(/\s+/g, '_')}`)}
         className={`py-4 px-6 rounded-lg shadow-md border-2 cursor-pointer transition-all group relative overflow-hidden
-          ${isAdmin
-            ? 'bg-[#e2e8f0] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
+          ${isSchoolAdmin
+            ? 'bg-[#3a1f0b] border-hogwarts-bronze hover:shadow-[0_0_20px_rgba(58,31,11,0.45)]'
+            : isAdmin
+              ? 'bg-[#e2e8f0] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(225,177,47,0.5)]'
             : isGryffindor 
               ? 'bg-[#5c0000] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
               : isRavenclaw
@@ -134,28 +141,40 @@ export const WizardList: React.FC = () => {
       >
         {hasSpecialStyle && (
           <>
-            {!isMD && (
-              <div
-                className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 ${
-                  isAdmin ? 'from-white/45' : isDarkFaculty ? 'from-white/12' : isLightFaculty ? 'from-white/15' : 'from-white/5'
-                }`}
-              />
+            {isSchoolAdmin ? (
+              <>
+                <div className="absolute inset-0 bg-white/5 pointer-events-none z-0 rounded-lg" />
+                <div className="absolute inset-0 ring-1 ring-white/10 pointer-events-none z-0 rounded-lg" />
+                <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 rounded-lg">
+                  <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-glass-shimmer opacity-35" />
+                </div>
+              </>
+            ) : (
+              <>
+                {!isMD && (
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br to-transparent pointer-events-none z-0 ${
+                      isAdmin ? 'from-white/35' : isDarkFaculty ? 'from-white/12' : isLightFaculty ? 'from-white/15' : 'from-white/5'
+                    }`}
+                  />
+                )}
+                <div className={`absolute inset-0 pointer-events-none overflow-hidden ${isMD ? 'z-30' : 'z-0'}`}>
+                  <div
+                    className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer ${
+                      isAdmin
+                        ? 'via-white/95 mix-blend-screen'
+                        : isMD
+                          ? 'via-white/45 mix-blend-screen opacity-70'
+                          : isDarkFaculty
+                            ? 'via-white/25 mix-blend-overlay'
+                            : isLightFaculty
+                              ? 'via-white/35 mix-blend-overlay'
+                              : 'via-white/12'
+                    }`}
+                  />
+                </div>
+              </>
             )}
-            <div className={`absolute inset-0 pointer-events-none overflow-hidden ${isMD ? 'z-30' : 'z-0'}`}>
-              <div
-                className={`absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent to-transparent animate-glass-shimmer ${
-                  isAdmin
-                    ? 'via-white/95 mix-blend-screen'
-                    : isMD
-                      ? 'via-white/45 mix-blend-screen opacity-70'
-                      : isDarkFaculty
-                        ? 'via-white/25 mix-blend-overlay'
-                        : isLightFaculty
-                          ? 'via-white/35 mix-blend-overlay'
-                          : 'via-white/12'
-                }`}
-              />
-            </div>
           </>
         )}
 
@@ -169,7 +188,13 @@ export const WizardList: React.FC = () => {
                   ? 'p-0 -right-4 -top-4 opacity-40 group-hover:opacity-60 group-hover:-right-2 group-hover:-top-2' 
                   : 'p-2 top-0 right-0 opacity-10 group-hover:opacity-20'}`}
         >
-          {isAdmin ? (
+          {isSchoolAdmin ? (
+            <img
+              src={hogwartsEmblem}
+              alt="Hogwarts"
+              className="w-32 h-32 object-contain opacity-70 group-hover:opacity-90"
+            />
+          ) : isAdmin ? (
             <img
               src={mmEmblem}
               alt="Администратор"
@@ -193,7 +218,7 @@ export const WizardList: React.FC = () => {
 
         <div className="flex items-center gap-4 mb-2 relative z-20">
           <div className={`w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden relative
-            ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD || isAdmin ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
+            ${wizard.avatar_url ? (hasSpecialStyle ? (isHufflepuff || isMD || isAdmin || isSchoolAdmin ? 'bg-black/5 border-hogwarts-gold text-hogwarts-gold rounded-full border' : 'bg-hogwarts-gold/20 border-hogwarts-gold text-hogwarts-gold rounded-full border') : 'bg-hogwarts-blue border-hogwarts-gold text-hogwarts-gold rounded-full border') : ''}`}>
               {wizard.avatar_url ? (
                   <img 
                       src={wizard.avatar_url} 
@@ -213,6 +238,8 @@ export const WizardList: React.FC = () => {
                 ${hasSpecialStyle 
                   ? isMD
                       ? 'text-hogwarts-gold group-hover:text-white'
+                      : isSchoolAdmin
+                        ? 'text-hogwarts-gold group-hover:text-white'
                       : isHufflepuff || isAdmin
                         ? 'text-hogwarts-ink group-hover:text-hogwarts-red' 
                       : isSlytherin || isRavenclaw
@@ -226,6 +253,8 @@ export const WizardList: React.FC = () => {
                     hasSpecialStyle 
                       ? isMD
                         ? 'bg-white/10 text-white border border-white/20'
+                        : isSchoolAdmin
+                          ? 'bg-white/10 text-white border border-white/20'
                         : isHufflepuff || isAdmin
                           ? 'bg-black/5 text-hogwarts-ink border border-black/10'
                           : 'bg-white/10 text-white border border-white/20' 
@@ -238,6 +267,8 @@ export const WizardList: React.FC = () => {
                         hasSpecialStyle 
                           ? isMD
                             ? 'bg-white/10 text-white border border-white/20'
+                            : isSchoolAdmin
+                              ? 'bg-white/10 text-white border border-white/20'
                             : isHufflepuff || isAdmin
                               ? 'bg-black/5 text-hogwarts-ink border border-black/10'
                               : 'bg-white/10 text-white border border-white/20' 
