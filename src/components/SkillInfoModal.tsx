@@ -60,6 +60,41 @@ const formatText = (text: string): React.ReactNode => {
     });
 };
 
+const getResponsibleContacts = (metadata: SkillMetadata | null) => {
+  if (!metadata) {
+    return [];
+  }
+
+  const contacts = [
+    {
+      label: 'Хогвартс',
+      name: metadata.responsible_person_name_hogwarts || metadata.responsible_person_name,
+      link: metadata.responsible_person_link_hogwarts || metadata.responsible_person_link
+    },
+    {
+      label: 'МД',
+      name: metadata.responsible_person_name_md,
+      link: metadata.responsible_person_link_md
+    }
+  ];
+
+  const uniqueContacts = contacts.filter((contact, index, array) => {
+    if (!contact.name) {
+      return false;
+    }
+
+    return array.findIndex((candidate) => (
+      candidate.name === contact.name && (candidate.link || '') === (contact.link || '')
+    )) === index;
+  });
+
+  if (uniqueContacts.length > 0) {
+    return uniqueContacts;
+  }
+
+  return [];
+};
+
 export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
   isOpen,
   onClose,
@@ -73,6 +108,7 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const responsibleContacts = getResponsibleContacts(metadata);
 
   // Determine which description to show:
   // 1. If editing, show editedDescription
@@ -107,7 +143,11 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
               description: editedDescription,
               // Preserve other fields if they exist in current metadata
               responsible_person_name: metadata?.responsible_person_name,
-              responsible_person_link: metadata?.responsible_person_link
+              responsible_person_link: metadata?.responsible_person_link,
+              responsible_person_name_hogwarts: metadata?.responsible_person_name_hogwarts,
+              responsible_person_link_hogwarts: metadata?.responsible_person_link_hogwarts,
+              responsible_person_name_md: metadata?.responsible_person_name_md,
+              responsible_person_link_md: metadata?.responsible_person_link_md
           });
           setMetadata(updated || null);
           setIsEditing(false);
@@ -284,18 +324,27 @@ export const SkillInfoModal: React.FC<SkillInfoModalProps> = ({
                  <h2 className="text-xl md:text-3xl font-seminaria font-bold text-hogwarts-blue">
                    {title}
                  </h2>
-                 {metadata?.responsible_person_name && (
-                     <div className="text-sm md:text-base font-nexa text-hogwarts-ink/70 mt-1 uppercase">
-                         Ответственное лицо: {' '}
-                         <a 
-                             href={metadata.responsible_person_link} 
-                             target="_blank" 
-                             rel="noopener noreferrer"
-                             className="text-hogwarts-red hover:text-hogwarts-gold font-bold underline decoration-1 underline-offset-2 transition-colors"
-                             onClick={(e) => e.stopPropagation()}
-                         >
-                             {metadata.responsible_person_name}
-                         </a>
+                 {responsibleContacts.length > 0 && (
+                     <div className="mt-1 space-y-0.5 text-[10px] md:text-xs font-nexa text-hogwarts-ink/70 uppercase leading-tight">
+                         {responsibleContacts.map((contact) => (
+                             <div key={`${contact.label}-${contact.name}`} className="flex flex-wrap items-baseline gap-1">
+                                 <span>{contact.label}:</span>
+                                 <a 
+                                     href={contact.link || '#'} 
+                                     target="_blank" 
+                                     rel="noopener noreferrer"
+                                     className="text-hogwarts-red hover:text-hogwarts-gold font-bold underline decoration-1 underline-offset-2 transition-colors"
+                                     onClick={(e) => {
+                                       if (!contact.link) {
+                                         e.preventDefault();
+                                       }
+                                       e.stopPropagation();
+                                     }}
+                                 >
+                                     {contact.name}
+                                 </a>
+                             </div>
+                         ))}
                      </div>
                  )}
             </div>

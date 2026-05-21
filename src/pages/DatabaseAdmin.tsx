@@ -1,9 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useStore, SKILL_CATEGORIES } from '../store';
-import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap, ChevronDown, ChevronUp, Check, XCircle, Clock } from 'lucide-react';
+import { Trash2, UserCog, Key, Plus, Save, X, Eye, EyeOff, Shield, ShieldAlert, Pencil, GraduationCap, ChevronDown, ChevronUp, Check, XCircle, Clock, RotateCcw, Crown } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { User, SkillMetadata, RaceChangeRequest } from '../lib/api/types';
+
+type SkillResponsibleField =
+  | 'responsible_person_name_hogwarts'
+  | 'responsible_person_link_hogwarts'
+  | 'responsible_person_name_md'
+  | 'responsible_person_link_md';
+
+const normalizeSkillMetadata = (skillName: string, metadata?: SkillMetadata): SkillMetadata => ({
+  skill_name: skillName,
+  responsible_person_name: metadata?.responsible_person_name || '',
+  responsible_person_link: metadata?.responsible_person_link || '',
+  responsible_person_name_hogwarts: metadata?.responsible_person_name_hogwarts ?? metadata?.responsible_person_name ?? '',
+  responsible_person_link_hogwarts: metadata?.responsible_person_link_hogwarts ?? metadata?.responsible_person_link ?? '',
+  responsible_person_name_md: metadata?.responsible_person_name_md || '',
+  responsible_person_link_md: metadata?.responsible_person_link_md || '',
+  description: metadata?.description,
+  updated_at: metadata?.updated_at
+});
 
 export const DatabaseAdmin: React.FC = () => {
   const { user } = useStore();
@@ -24,6 +42,8 @@ export const DatabaseAdmin: React.FC = () => {
 
   const [isSchoolAdminSectionOpen, setIsSchoolAdminSectionOpen] = useState(false);
   const [isSavingSchoolAdmin, setIsSavingSchoolAdmin] = useState<Record<string, boolean>>({});
+  const [isSavingVisibility, setIsSavingVisibility] = useState<Record<string, boolean>>({});
+  const [isSavingMinister, setIsSavingMinister] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchSkillMetadata();
@@ -80,7 +100,7 @@ export const DatabaseAdmin: React.FC = () => {
           const data = await api.skills?.getMetadata();
           const map: Record<string, SkillMetadata> = {};
           data?.forEach(m => {
-              map[m.skill_name] = m;
+              map[m.skill_name] = normalizeSkillMetadata(m.skill_name, m);
           });
           setSkillMetadata(map);
       } catch (err) {
@@ -88,14 +108,12 @@ export const DatabaseAdmin: React.FC = () => {
       }
   };
 
-  const handleSkillMetaChange = (skillName: string, field: 'name' | 'link', value: string) => {
+  const handleSkillMetaChange = (skillName: string, field: SkillResponsibleField, value: string) => {
       setSkillMetadata(prev => ({
           ...prev,
           [skillName]: {
-              skill_name: skillName,
-              responsible_person_name: field === 'name' ? value : (prev[skillName]?.responsible_person_name || ''),
-              responsible_person_link: field === 'link' ? value : (prev[skillName]?.responsible_person_link || ''),
-              updated_at: prev[skillName]?.updated_at
+              ...normalizeSkillMetadata(skillName, prev[skillName]),
+              [field]: value
           }
       }));
   };
@@ -106,11 +124,21 @@ export const DatabaseAdmin: React.FC = () => {
       
       setIsSavingSkill(prev => ({ ...prev, [skillName]: true }));
       try {
-          await api.skills?.updateMetadata({
+          const updated = await api.skills?.updateMetadata({
               skill_name: skillName,
-              responsible_person_name: meta.responsible_person_name,
-              responsible_person_link: meta.responsible_person_link
+              responsible_person_name: meta.responsible_person_name_hogwarts || meta.responsible_person_name_md || '',
+              responsible_person_link: meta.responsible_person_link_hogwarts || meta.responsible_person_link_md || '',
+              responsible_person_name_hogwarts: meta.responsible_person_name_hogwarts,
+              responsible_person_link_hogwarts: meta.responsible_person_link_hogwarts,
+              responsible_person_name_md: meta.responsible_person_name_md,
+              responsible_person_link_md: meta.responsible_person_link_md
           });
+          if (updated) {
+              setSkillMetadata(prev => ({
+                  ...prev,
+                  [skillName]: normalizeSkillMetadata(skillName, updated)
+              }));
+          }
       } catch (err) {
           console.error(err);
           alert('Ошибка сохранения');
@@ -161,6 +189,7 @@ export const DatabaseAdmin: React.FC = () => {
     userId: null,
     userName: ''
   });
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Edit password state
   const [editingPassword, setEditingPassword] = useState<{ userId: string | null, newPassword: '' }>({ userId: null, newPassword: '' });
@@ -211,15 +240,18 @@ export const DatabaseAdmin: React.FC = () => {
   };
 
   const handleDeleteUser = async () => {
-    if (!deleteConfirmation.userId) return;
+    if (!deleteConfirmation.userId || !user) return;
     
+    setIsDeletingUser(true);
     try {
-      await api.admin?.deleteUser(deleteConfirmation.userId);
-      setUsers(users.filter(u => u.id !== deleteConfirmation.userId));
+      await api.admin?.deleteUser(deleteConfirmation.userId, user.id, 'delete');
+      setUsers(prev => prev.filter(u => u.id !== deleteConfirmation.userId));
       setDeleteConfirmation({ isOpen: false, userId: null, userName: '' });
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Ошибка при удалении пользователя');
+      alert('Ошибка при полном удалении пользователя');
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -256,15 +288,16 @@ export const DatabaseAdmin: React.FC = () => {
 
   const handleSavePermissions = async () => {
     if (!permissionModal.user) return;
+    const managedSkills = permissionModal.role === 'moderator' ? permissionModal.managedSkills : [];
     try {
       await api.admin?.updateUser(permissionModal.user.id, {
         role: permissionModal.role,
-        managed_skills: permissionModal.managedSkills
+        managed_skills: managedSkills
       });
       setUsers(users.map(u => u.id === permissionModal.user!.id ? {
         ...u,
         role: permissionModal.role,
-        managed_skills: permissionModal.managedSkills
+        managed_skills: managedSkills
       } : u));
       setPermissionModal(prev => ({ ...prev, isOpen: false }));
     } catch (error) {
@@ -316,6 +349,48 @@ export const DatabaseAdmin: React.FC = () => {
 
   const cancelEditPassword = () => {
       setEditingPassword({ userId: null, newPassword: '' });
+  };
+
+  const setUserVisibility = async (targetUser: User, nextValue: boolean) => {
+    setIsSavingVisibility(prev => ({ ...prev, [targetUser.id]: true }));
+    try {
+      await api.admin?.updateUser(targetUser.id, { is_visible: nextValue });
+      setUsers(prev => prev.map(u => (
+        u.id === targetUser.id ? { ...u, is_visible: nextValue } : u
+      )));
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      alert(nextValue ? 'Ошибка при возврате пользователя в список' : 'Ошибка при скрытии пользователя');
+    } finally {
+      setIsSavingVisibility(prev => ({ ...prev, [targetUser.id]: false }));
+    }
+  };
+
+  const toggleMinister = async (targetUser: User, nextValue: boolean) => {
+    setIsSavingMinister(prev => ({ ...prev, [targetUser.id]: true }));
+    try {
+      await api.admin?.updateUser(targetUser.id, { is_minister: nextValue });
+      setUsers(prev => prev.map(u => (
+        u.id === targetUser.id ? { ...u, is_minister: nextValue } : u
+      )));
+    } catch (error) {
+      console.error('Error updating minister flag:', error);
+      alert(nextValue ? 'Ошибка при выдаче ранга министра' : 'Ошибка при снятии ранга министра');
+    } finally {
+      setIsSavingMinister(prev => ({ ...prev, [targetUser.id]: false }));
+    }
+  };
+
+  const getRoleBadgeClass = (role: User['role']) => {
+    if (role === 'admin') return 'bg-purple-100 text-purple-800';
+    if (role === 'moderator') return 'bg-blue-100 text-blue-800';
+    return 'bg-green-100 text-green-800';
+  };
+
+  const getRoleLabel = (role: User['role']) => {
+    if (role === 'admin') return 'Администратор';
+    if (role === 'moderator') return 'Участник, Экзаменатор';
+    return 'Участник';
   };
 
   // Only allow admin access
@@ -457,46 +532,94 @@ export const DatabaseAdmin: React.FC = () => {
                         <div key={skill} className="border p-4 rounded-lg bg-gray-50 hover:shadow-sm transition-shadow">
                             <h3 className="font-bold text-gray-700 mb-3 border-b pb-2 font-serif">{skill}</h3>
                             <div className="space-y-3">
-                                <div className="relative">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Имя ответственного</label>
+                                <div className="rounded-lg border border-hogwarts-gold/20 bg-white p-3 space-y-3">
+                                    <div className="text-xs font-bold text-hogwarts-blue uppercase tracking-wide">Хогвартс</div>
                                     <div className="relative">
-                                        <input 
-                                            type="text"
-                                            value={skillMetadata[skill]?.responsible_person_name || ''}
-                                            onChange={(e) => handleSkillMetaChange(skill, 'name', e.target.value)}
-                                            className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
-                                            placeholder="Например: Луна Лавгуд"
-                                        />
-                                        {skillMetadata[skill]?.responsible_person_name && (
-                                            <button
-                                                onClick={() => handleSkillMetaChange(skill, 'name', '')}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
-                                                title="Очистить"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        )}
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Имя ответственного</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text"
+                                                value={skillMetadata[skill]?.responsible_person_name_hogwarts || ''}
+                                                onChange={(e) => handleSkillMetaChange(skill, 'responsible_person_name_hogwarts', e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                                placeholder="Например: Луна Лавгуд"
+                                            />
+                                            {skillMetadata[skill]?.responsible_person_name_hogwarts && (
+                                                <button
+                                                    onClick={() => handleSkillMetaChange(skill, 'responsible_person_name_hogwarts', '')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Очистить"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Ссылка ВК</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text"
+                                                value={skillMetadata[skill]?.responsible_person_link_hogwarts || ''}
+                                                onChange={(e) => handleSkillMetaChange(skill, 'responsible_person_link_hogwarts', e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                                placeholder="https://vk.com/..."
+                                            />
+                                            {skillMetadata[skill]?.responsible_person_link_hogwarts && (
+                                                <button
+                                                    onClick={() => handleSkillMetaChange(skill, 'responsible_person_link_hogwarts', '')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Очистить"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Ссылка ВК</label>
+                                <div className="rounded-lg border border-hogwarts-gold/20 bg-white p-3 space-y-3">
+                                    <div className="text-xs font-bold text-hogwarts-red uppercase tracking-wide">МД</div>
                                     <div className="relative">
-                                        <input 
-                                            type="text"
-                                            value={skillMetadata[skill]?.responsible_person_link || ''}
-                                            onChange={(e) => handleSkillMetaChange(skill, 'link', e.target.value)}
-                                            className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
-                                            placeholder="https://vk.com/..."
-                                        />
-                                        {skillMetadata[skill]?.responsible_person_link && (
-                                            <button
-                                                onClick={() => handleSkillMetaChange(skill, 'link', '')}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
-                                                title="Очистить"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        )}
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Имя ответственного</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text"
+                                                value={skillMetadata[skill]?.responsible_person_name_md || ''}
+                                                onChange={(e) => handleSkillMetaChange(skill, 'responsible_person_name_md', e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                                placeholder="Например: Кингсли Бруствер"
+                                            />
+                                            {skillMetadata[skill]?.responsible_person_name_md && (
+                                                <button
+                                                    onClick={() => handleSkillMetaChange(skill, 'responsible_person_name_md', '')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Очистить"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Ссылка ВК</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text"
+                                                value={skillMetadata[skill]?.responsible_person_link_md || ''}
+                                                onChange={(e) => handleSkillMetaChange(skill, 'responsible_person_link_md', e.target.value)}
+                                                className="w-full px-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-hogwarts-gold focus:border-transparent outline-none transition-all pr-8"
+                                                placeholder="https://vk.com/..."
+                                            />
+                                            {skillMetadata[skill]?.responsible_person_link_md && (
+                                                <button
+                                                    onClick={() => handleSkillMetaChange(skill, 'responsible_person_link_md', '')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                                                    title="Очистить"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 <button 
@@ -560,22 +683,24 @@ export const DatabaseAdmin: React.FC = () => {
             <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl animate-in fade-in zoom-in-95">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Удаление пользователя</h3>
               <p className="text-gray-600 mb-6">
-                Вы уверены, что хотите удалить волшебника <strong className="text-hogwarts-gold">{deleteConfirmation.userName}</strong>? 
-                Это действие необратимо и приведет к удалению всех связанных данных.
+                Вы уверены, что хотите полностью удалить волшебника <strong className="text-hogwarts-gold">{deleteConfirmation.userName}</strong> из базы?
+                Это действие необратимо.
               </p>
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setDeleteConfirmation({ isOpen: false, userId: null, userName: '' })}
+                  disabled={isDeletingUser}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={handleDeleteUser}
+                  disabled={isDeletingUser}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Удалить
+                  {isDeletingUser ? 'Удаление...' : 'Удалить навсегда'}
                 </button>
               </div>
             </div>
@@ -727,6 +852,7 @@ export const DatabaseAdmin: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Имя</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Роль</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Видимость</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Пароль</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата регистрации</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
@@ -735,10 +861,10 @@ export const DatabaseAdmin: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Загрузка...</td>
+                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">Загрузка...</td>
                 </tr>
               ) : users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr key={u.id} className={`hover:bg-gray-50 ${u.is_visible === false ? 'bg-gray-50/80' : ''}`}>
                   <td className="p-4 text-hogwarts-ink font-serif font-bold">
                     {editingName.userId === u.id ? (
                         <div className="flex items-center gap-2">
@@ -777,18 +903,28 @@ export const DatabaseAdmin: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
-                      u.role === 'moderator' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {u.role === 'admin' ? 'Администратор' : u.role === 'moderator' ? 'Участник, Экзаменатор' : 'Участник'}
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(u.role)}`}>
+                      {getRoleLabel(u.role)}
                     </span>
+                    {u.is_minister && (
+                        <div className="mt-1">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+                            Министр
+                          </span>
+                        </div>
+                    )}
                     {u.role === 'moderator' && u.managed_skills && u.managed_skills.length > 0 && (
                         <div className="text-xs text-gray-500 mt-1 max-w-[150px] truncate" title={u.managed_skills.join(', ')}>
                             {u.managed_skills.length} навыков
                         </div>
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      u.is_visible === false ? 'bg-gray-200 text-gray-700' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {u.is_visible === false ? 'Скрыт' : 'Виден'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {editingPassword.userId === u.id ? (
@@ -841,9 +977,28 @@ export const DatabaseAdmin: React.FC = () => {
                         {u.role === 'admin' ? <ShieldAlert className="w-5 h-5" /> : <UserCog className="w-5 h-5" />}
                       </button>
                       <button
+                        onClick={() => toggleMinister(u, !u.is_minister)}
+                        disabled={!!isSavingMinister[u.id]}
+                        className={`${u.is_minister ? 'text-amber-600 hover:text-amber-900' : 'text-gray-400 hover:text-amber-700'} disabled:opacity-50`}
+                        title={u.is_minister ? 'Снять ранг министра' : 'Выдать ранг министра'}
+                      >
+                        <Crown className="w-5 h-5" />
+                      </button>
+                      {u.is_visible === false && (
+                        <button
+                          onClick={() => setUserVisibility(u, true)}
+                          disabled={!!isSavingVisibility[u.id]}
+                          className="text-emerald-600 hover:text-emerald-900 disabled:opacity-50"
+                          title="Вернуть в список"
+                        >
+                          <RotateCcw className="w-5 h-5" />
+                        </button>
+                      )}
+                      <button
                         onClick={() => confirmDeleteUser(u)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Удалить"
+                        disabled={isDeletingUser}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                        title="Удалить из базы"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>

@@ -85,9 +85,11 @@ export const restApi: ApiClient = {
         throw new Error(data.error);
       }
     },
-    deleteUser: async (id) => {
+    deleteUser: async (id, actorUserId, mode = 'hide') => {
       const res = await fetch(`${API_URL}/admin/users/${id}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: actorUserId, mode }),
       });
       if (!res.ok) {
         const data = await res.json();

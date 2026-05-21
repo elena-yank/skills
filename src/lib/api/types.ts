@@ -10,6 +10,8 @@ export interface User {
   age?: string;
   faculty?: string;
   is_school_admin?: boolean;
+  is_visible?: boolean;
+  is_minister?: boolean;
 }
 
 export interface PracticeLog {
@@ -64,6 +66,10 @@ export interface SkillMetadata {
   skill_name: string;
   responsible_person_name?: string;
   responsible_person_link?: string;
+  responsible_person_name_hogwarts?: string;
+  responsible_person_link_hogwarts?: string;
+  responsible_person_name_md?: string;
+  responsible_person_link_md?: string;
   description?: string;
   updated_at?: string;
 }
@@ -103,8 +109,8 @@ export interface ApiClient {
   admin: {
     listUsers: () => Promise<User[]>;
     createUser: (user: Pick<User, 'name' | 'role'> & { password: string }) => Promise<User>;
-    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills' | 'is_school_admin'>>) => Promise<void>;
-    deleteUser: (id: string) => Promise<void>;
+    updateUser: (id: string, updates: Partial<Pick<User, 'role' | 'password' | 'name' | 'managed_skills' | 'is_school_admin' | 'is_visible' | 'is_minister'>>) => Promise<void>;
+    deleteUser: (id: string, actorUserId?: string, mode?: 'hide' | 'delete') => Promise<void>;
     grantSkill: (userId: string, skillName: string, reason: string, moderatorId: string) => Promise<void>;
   };
   skills: {

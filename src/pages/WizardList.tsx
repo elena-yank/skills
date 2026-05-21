@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { ArrowLeft, User, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, User, Search, ChevronDown, ChevronUp, X } from 'lucide-react';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import gryffindorEmblem from '../assets/gryffindor.svg';
@@ -23,6 +23,12 @@ export const WizardList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useStore();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({
+    isOpen: false,
+    userId: null,
+    userName: ''
+  });
+  const [isDeletingWizard, setIsDeletingWizard] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     admins: true,
     schoolStaff: true,
@@ -64,6 +70,7 @@ export const WizardList: React.FC = () => {
 
   const filteredWizards = wizards
     .filter(wizard => wizard.name !== 'Admin')
+    .filter(wizard => wizard.is_visible !== false)
     .filter(wizard => 
       wizard.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -105,6 +112,24 @@ export const WizardList: React.FC = () => {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const isMinister = !!user?.is_minister;
+
+  const handleDeleteWizard = async () => {
+    if (!deleteConfirmation.userId || !user) return;
+
+    setIsDeletingWizard(true);
+    try {
+      await api.admin?.deleteUser(deleteConfirmation.userId, user.id, 'hide');
+      setWizards(prev => prev.filter(wizard => wizard.id !== deleteConfirmation.userId));
+      setDeleteConfirmation({ isOpen: false, userId: null, userName: '' });
+    } catch (error) {
+      console.error('Error deleting wizard:', error);
+      alert('Ошибка при удалении волшебника');
+    } finally {
+      setIsDeletingWizard(false);
+    }
+  };
+
   const renderWizardCard = (wizard: UserType) => {
     const isGryffindor = wizard.faculty === 'Гриффиндор';
     const isRavenclaw = wizard.faculty === 'Когтевран';
@@ -139,6 +164,24 @@ export const WizardList: React.FC = () => {
                       ? 'bg-[#592080] border-hogwarts-gold hover:shadow-[0_0_20px_rgba(255,215,0,0.3)]'
                       : 'bg-white border-hogwarts-bronze hover:shadow-xl hover:border-hogwarts-gold'}`}
       >
+        {isMinister && wizard.id !== user?.id && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteConfirmation({
+                isOpen: true,
+                userId: wizard.id,
+                userName: wizard.name
+              });
+            }}
+            className="absolute left-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-full border border-red-300 bg-white/90 text-red-600 shadow-sm transition-colors hover:bg-red-50 hover:text-red-700"
+            title="Удалить волшебника"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+
         {hasSpecialStyle && (
           <>
             {isSchoolAdmin ? (
@@ -389,6 +432,34 @@ export const WizardList: React.FC = () => {
         imageUrl={selectedImage || ''}
         altText="Wizard Avatar"
       />
+      {deleteConfirmation.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 text-hogwarts-ink shadow-xl">
+            <h3 className="mb-4 text-xl font-bold font-seminaria">Удаление волшебника</h3>
+            <p className="mb-6 font-century">
+              Вы уверены, что хотите удалить волшебника <strong className="text-hogwarts-gold">{deleteConfirmation.userName}</strong>?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmation({ isOpen: false, userId: null, userName: '' })}
+                disabled={isDeletingWizard}
+                className="rounded-lg px-4 py-2 text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteWizard}
+                disabled={isDeletingWizard}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingWizard ? 'Удаление...' : 'Удалить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

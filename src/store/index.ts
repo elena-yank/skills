@@ -13,6 +13,8 @@ export interface Wizard {
   age?: string;
   faculty?: string;
   is_school_admin?: boolean;
+  is_visible?: boolean;
+  is_minister?: boolean;
 }
 
 export interface Skill {

@@ -88,6 +88,10 @@ const runMigrations = async () => {
           skill_name TEXT PRIMARY KEY,
           responsible_person_name TEXT,
           responsible_person_link TEXT,
+          responsible_person_name_hogwarts TEXT,
+          responsible_person_link_hogwarts TEXT,
+          responsible_person_name_md TEXT,
+          responsible_person_link_md TEXT,
           description TEXT,
           updated_at TIMESTAMPTZ DEFAULT NOW()
         )
@@ -97,6 +101,14 @@ const runMigrations = async () => {
       await client.query(`
         ALTER TABLE skill_metadata 
         ADD COLUMN IF NOT EXISTS description TEXT
+      `);
+
+      await client.query(`
+        ALTER TABLE skill_metadata 
+        ADD COLUMN IF NOT EXISTS responsible_person_name_hogwarts TEXT,
+        ADD COLUMN IF NOT EXISTS responsible_person_link_hogwarts TEXT,
+        ADD COLUMN IF NOT EXISTS responsible_person_name_md TEXT,
+        ADD COLUMN IF NOT EXISTS responsible_person_link_md TEXT
       `);
 
       // Add notifications table
@@ -136,6 +148,34 @@ const runMigrations = async () => {
       await client.query(`
         ALTER TABLE wizards
         ADD COLUMN IF NOT EXISTS is_school_admin BOOLEAN DEFAULT FALSE
+      `);
+
+      await client.query(`
+        ALTER TABLE wizards
+        ADD COLUMN IF NOT EXISTS is_visible BOOLEAN DEFAULT TRUE
+      `);
+
+      await client.query(`
+        ALTER TABLE wizards
+        ADD COLUMN IF NOT EXISTS is_minister BOOLEAN DEFAULT FALSE
+      `);
+
+      await client.query(`
+        UPDATE wizards
+        SET is_visible = TRUE
+        WHERE is_visible IS NULL
+      `);
+
+      await client.query(`
+        UPDATE wizards
+        SET is_minister = TRUE
+        WHERE role = 'minister'
+      `);
+
+      await client.query(`
+        UPDATE wizards
+        SET role = 'user'
+        WHERE role = 'minister'
       `);
 
       // Add race_change_requests table
@@ -271,7 +311,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users/:name', async (req, res) => {
     try {
       const name = req.params.name.replace(/_/g, ' '); // Decode URL friendly name
-      const result = await pool.query('SELECT id, name, role, avatar_url, race, age, faculty, is_school_admin, managed_skills FROM wizards WHERE name ILIKE $1', [name]);
+      const result = await pool.query('SELECT id, name, role, avatar_url, race, age, faculty, is_school_admin, managed_skills, is_visible, is_minister FROM wizards WHERE name ILIKE $1', [name]);
       if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Wizard not found' });
     }
@@ -285,7 +325,13 @@ app.get('/api/users/:name', async (req, res) => {
 // Auth: List All Users (Public)
 app.get('/api/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, role, avatar_url, race, age, faculty, is_school_admin, managed_skills FROM wizards ORDER BY name ASC');
+        const result = await pool.query(`
+          SELECT id, name, role, avatar_url, race, age, faculty, is_school_admin, managed_skills, is_visible
+          , is_minister
+          FROM wizards
+          WHERE COALESCE(is_visible, TRUE) = TRUE
+          ORDER BY name ASC
+        `);
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -300,7 +346,7 @@ app.patch('/api/users/:id/avatar', async (req, res) => {
     
     try {
         const result = await pool.query(
-            'UPDATE wizards SET avatar_url = $1 WHERE id = $2 RETURNING id, name, role, avatar_url, race, age, faculty, is_school_admin',
+            'UPDATE wizards SET avatar_url = $1 WHERE id = $2 RETURNING id, name, role, avatar_url, race, age, faculty, is_school_admin, is_visible, is_minister',
             [avatar_url, id]
         );
         if (result.rows.length === 0) {
@@ -335,7 +381,7 @@ app.patch('/api/users/:id/profile', async (req, res) => {
         }
 
         const result = await pool.query(
-            'UPDATE wizards SET race = $1, age = $2, faculty = $3 WHERE id = $4 RETURNING id, name, role, avatar_url, race, age, faculty, is_school_admin',
+            'UPDATE wizards SET race = $1, age = $2, faculty = $3 WHERE id = $4 RETURNING id, name, role, avatar_url, race, age, faculty, is_school_admin, is_visible, is_minister',
             [race, age, faculty, id]
         );
         res.json(result.rows[0]);
@@ -348,7 +394,7 @@ app.patch('/api/users/:id/profile', async (req, res) => {
 // Admin: List Users
 app.get('/api/admin/users', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM wizards ORDER BY created_at DESC');
+        const result = await pool.query('SELECT * FROM wizards ORDER BY COALESCE(is_visible, TRUE) DESC, created_at DESC');
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -398,9 +444,72 @@ app.patch('/api/admin/users/:id', async (req, res) => {
 // Admin: Delete User
 app.delete('/api/admin/users/:id', async (req, res) => {
     const { id } = req.params;
+    const { user_id, mode = 'hide' } = req.body || {};
     try {
-        await pool.query('DELETE FROM wizards WHERE id = $1', [id]);
-        res.json({ success: true });
+        if (!user_id) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        if (!['hide', 'delete'].includes(mode)) {
+            return res.status(400).json({ error: 'Invalid delete mode' });
+        }
+
+        const actorRes = await pool.query('SELECT id, role, is_minister FROM wizards WHERE id = $1', [user_id]);
+        if (actorRes.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const actor = actorRes.rows[0];
+        if (mode === 'delete' && actor.role !== 'admin') {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        if (mode === 'hide' && actor.role !== 'admin' && !actor.is_minister) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        if (mode === 'hide') {
+            const result = await pool.query(
+                'UPDATE wizards SET is_visible = FALSE WHERE id = $1 RETURNING id',
+                [id]
+            );
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            return res.json({ success: true });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            await client.query(
+                'UPDATE practice_logs SET moderator_approval_id = NULL, moderator_approved_at = NULL, moderator_proposed_status = NULL WHERE moderator_approval_id = $1',
+                [id]
+            );
+            await client.query(
+                'UPDATE race_change_requests SET admin_id = NULL WHERE admin_id = $1',
+                [id]
+            );
+
+            const result = await client.query(
+                'DELETE FROM wizards WHERE id = $1 RETURNING id',
+                [id]
+            );
+            if (result.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            await client.query('COMMIT');
+            res.json({ success: true });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
@@ -706,20 +815,52 @@ app.get('/api/skills/metadata', async (req, res) => {
 
 // Skills Metadata: Update
 app.post('/api/skills/metadata', async (req, res) => {
-    const { skill_name, responsible_person_name, responsible_person_link, description } = req.body;
+    const {
+        skill_name,
+        responsible_person_name,
+        responsible_person_link,
+        responsible_person_name_hogwarts,
+        responsible_person_link_hogwarts,
+        responsible_person_name_md,
+        responsible_person_link_md,
+        description
+    } = req.body;
     
     try {
         const result = await pool.query(
-            `INSERT INTO skill_metadata (skill_name, responsible_person_name, responsible_person_link, description, updated_at)
-             VALUES ($1, $2, $3, $4, NOW())
+            `INSERT INTO skill_metadata (
+                skill_name,
+                responsible_person_name,
+                responsible_person_link,
+                responsible_person_name_hogwarts,
+                responsible_person_link_hogwarts,
+                responsible_person_name_md,
+                responsible_person_link_md,
+                description,
+                updated_at
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
              ON CONFLICT (skill_name) 
              DO UPDATE SET 
                 responsible_person_name = COALESCE(EXCLUDED.responsible_person_name, skill_metadata.responsible_person_name),
                 responsible_person_link = COALESCE(EXCLUDED.responsible_person_link, skill_metadata.responsible_person_link),
+                responsible_person_name_hogwarts = COALESCE(EXCLUDED.responsible_person_name_hogwarts, skill_metadata.responsible_person_name_hogwarts),
+                responsible_person_link_hogwarts = COALESCE(EXCLUDED.responsible_person_link_hogwarts, skill_metadata.responsible_person_link_hogwarts),
+                responsible_person_name_md = COALESCE(EXCLUDED.responsible_person_name_md, skill_metadata.responsible_person_name_md),
+                responsible_person_link_md = COALESCE(EXCLUDED.responsible_person_link_md, skill_metadata.responsible_person_link_md),
                 description = COALESCE(EXCLUDED.description, skill_metadata.description),
                 updated_at = NOW()
              RETURNING *`,
-            [skill_name, responsible_person_name, responsible_person_link, description]
+            [
+                skill_name,
+                responsible_person_name,
+                responsible_person_link,
+                responsible_person_name_hogwarts,
+                responsible_person_link_hogwarts,
+                responsible_person_name_md,
+                responsible_person_link_md,
+                description
+            ]
         );
         res.json(result.rows[0]);
     } catch (err) {
