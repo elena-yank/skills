@@ -78,6 +78,22 @@ const getResponsibleContacts = (metadata: SkillMetadata | null) => {
     }
   ];
 
+  const hasBothContacts =
+    Boolean(contacts[0].name) &&
+    Boolean(contacts[1].name);
+
+  const isSameContact = hasBothContacts &&
+    contacts[0].name === contacts[1].name &&
+    (contacts[0].link || '') === (contacts[1].link || '');
+
+  if (isSameContact) {
+    return [{
+      label: 'Ответственное лицо',
+      name: contacts[0].name,
+      link: contacts[0].link
+    }];
+  }
+
   const uniqueContacts = contacts.filter((contact, index, array) => {
     if (!contact.name) {
       return false;
