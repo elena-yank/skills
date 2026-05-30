@@ -44,6 +44,7 @@ export const Dashboard: React.FC = () => {
   const [animateProgress, setAnimateProgress] = useState(false);
   const initialProgressShown = useRef(false);
   const wasLoading = useRef(false);
+  const managedSkillsKey = (user?.managed_skills ?? []).slice().sort().join('|');
 
   useEffect(() => {
     if (wasLoading.current && !isLoading && !initialProgressShown.current) {
@@ -213,7 +214,7 @@ export const Dashboard: React.FC = () => {
       window.removeEventListener('focus', run);
       document.removeEventListener('visibilitychange', run);
     };
-  }, [fetchSkills, adminView, user?.id, user?.role]);
+  }, [fetchSkills, adminView, user?.id, user?.role, managedSkillsKey]);
 
   useEffect(() => {
     if (!user?.id) return;
