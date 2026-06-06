@@ -547,8 +547,16 @@ app.get('/api/logs', async (req, res) => {
 
 // Logs: List All (Admin)
 app.get('/api/admin/logs', async (req, res) => {
-    const { skill_name, status } = req.query;
+    const { skill_name, status, user_id } = req.query;
     try {
+        let requester = null;
+        if (user_id) {
+            const userRes = await pool.query('SELECT role, managed_skills FROM wizards WHERE id = $1', [user_id]);
+            if (userRes.rows.length > 0) {
+                requester = userRes.rows[0];
+            }
+        }
+
         let query = `
             SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar, w.age as wizard_age,
                    mw.name as moderator_name,
@@ -578,6 +586,7 @@ app.get('/api/admin/logs', async (req, res) => {
             JOIN wizards w ON pl.user_id = w.id
             LEFT JOIN wizards mw ON pl.moderator_approval_id = mw.id
             WHERE 1=1
+              AND COALESCE(pl.type, 'practice') <> 'completion_request'
         `;
         const params = [];
         let paramIdx = 1;
@@ -590,6 +599,11 @@ app.get('/api/admin/logs', async (req, res) => {
         if (status) {
             query += ` AND pl.status = $${paramIdx++}`;
             params.push(status);
+        }
+
+        if (requester?.role === 'moderator' && status === 'pending') {
+            // Moderators should only see items that still require their action.
+            query += ' AND pl.moderator_approval_id IS NULL';
         }
 
         query += ' ORDER BY pl.created_at DESC';
@@ -614,6 +628,65 @@ app.get('/api/admin/logs', async (req, res) => {
     }
 });
 
+app.get('/api/admin/completion-requests', async (req, res) => {
+    const { skill_name, user_id } = req.query;
+    if (!user_id) return res.status(400).json({ error: 'user_id is required' });
+
+    try {
+        const userRes = await pool.query('SELECT role, managed_skills FROM wizards WHERE id = $1', [user_id]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+        const user = userRes.rows[0];
+        const isAdmin = user.role === 'admin';
+        const isModerator = user.role === 'moderator';
+
+        if (!isAdmin && !isModerator) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        let query = `
+            SELECT pl.*, w.name as wizard_name, w.avatar_url as wizard_avatar, w.age as wizard_age,
+                   mw.name as moderator_name
+            FROM practice_logs pl
+            JOIN wizards w ON pl.user_id = w.id
+            LEFT JOIN wizards mw ON pl.moderator_approval_id = mw.id
+            WHERE pl.type = 'completion_request'
+              AND pl.status = 'pending'
+        `;
+        const params = [];
+        let paramIdx = 1;
+
+        if (skill_name) {
+            query += ` AND pl.skill_name = $${paramIdx++}`;
+            params.push(skill_name);
+        }
+
+        if (isModerator) {
+            query += ` AND pl.moderator_approval_id IS NULL`;
+            query += ` AND pl.skill_name = ANY($${paramIdx++})`;
+            params.push(user.managed_skills || []);
+        }
+
+        query += ' ORDER BY pl.created_at DESC';
+
+        const result = await pool.query(query, params);
+        const formattedRows = result.rows.map(row => ({
+            ...row,
+            wizards: {
+                name: row.wizard_name,
+                avatar_url: row.wizard_avatar,
+                age: row.wizard_age
+            },
+            moderator_name: row.moderator_name
+        }));
+
+        res.json(formattedRows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Logs: Fast pending counts for Admin/Moderator
 app.get('/api/admin/logs/pending-counts', async (req, res) => {
   const { user_id } = req.query;
@@ -628,10 +701,12 @@ app.get('/api/admin/logs/pending-counts', async (req, res) => {
 
     let query = `SELECT skill_name, COUNT(*)::int AS pending_count
                  FROM practice_logs
-                 WHERE status = 'pending'`;
+                 WHERE status = 'pending'
+                   AND COALESCE(type, 'practice') <> 'completion_request'`;
     const params = [];
     if (isModerator) {
-      // Restrict to managed skills for moderators
+      // Restrict moderators to actionable pending items in their managed skills.
+      query += ` AND moderator_approval_id IS NULL`;
       query += ` AND skill_name = ANY($1)`;
       params.push(user.managed_skills || []);
     }

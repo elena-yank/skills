@@ -357,12 +357,15 @@ export const useStore = create<AppState>((set, get) => ({
 
              if (['Метаморфомагия', 'Провидение'].includes(name)) {
                 const appStatus = (personalSpecialSkillAppStatus.get(name) || 'none') as 'pending' | 'approved' | 'rejected' | 'none';
-                const isUnlocked = appStatus === 'approved';
-                applicationStatus = appStatus;
+                const isUnlocked = appStatus === 'approved' || hasExamPassed;
+                applicationStatus = hasExamPassed ? 'approved' : appStatus;
                 
                 if (!isUnlocked) {
                     isLocked = true;
                     level = 1;
+                } else if (hasExamPassed) {
+                    level = 3;
+                    progress = 100;
                 } else {
                     const status = calculateSpecialSkillStatus(personalCount);
                     level = status.level;
@@ -467,7 +470,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (['Метаморфомагия', 'Провидение'].includes(name)) {
                 const appStatus = (specialSkillAppStatus.get(name) || 'none') as 'pending' | 'approved' | 'rejected' | 'none';
-                const isUnlocked = appStatus === 'approved';
+                const isUnlocked = appStatus === 'approved' || hasExamPassed;
                 
                 if (!isUnlocked) {
                     return { 
@@ -479,9 +482,22 @@ export const useStore = create<AppState>((set, get) => ({
                         applicationStatus: appStatus
                     };
                 }
+                if (hasExamPassed) {
+                    return {
+                        id: name,
+                        name,
+                        progress: 100,
+                        isLocked: false,
+                        level: 3,
+                        applicationStatus: 'approved' as const,
+                        approvedCount: count,
+                        hasExamPassed,
+                        totalPosts: totalPostsMap.get(name) || 0
+                    };
+                }
                 const base = calculateSpecialSkillStatus(count);
                 const adjusted = applyAgeRestrictions(name, user.age, count, base.progress, base.level, user.role === 'admin');
-                return { id: name, name, progress: adjusted.progress, isLocked: false, level: adjusted.level, ageCapMessage: adjusted.ageCapMessage };
+                return { id: name, name, progress: adjusted.progress, isLocked: false, level: adjusted.level, applicationStatus: appStatus, approvedCount: count, hasExamPassed, ageCapMessage: adjusted.ageCapMessage, totalPosts: totalPostsMap.get(name) || 0 };
             }
 
             const baseProgress = calculateSkillProgress(name, count, hasExamPassed, user.age, user.role === 'admin');

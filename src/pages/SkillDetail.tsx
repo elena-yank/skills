@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ArrowLeft, Scroll, Calendar, Feather, ChevronDown, ChevronUp, Trash2, Check, X, User as UserIcon, ArrowDown, ArrowUp, GraduationCap, Shield, BookOpen, Upload, Pencil } from 'lucide-react';
 import { useStore } from '../store';
-import { getSkillHeaderClass, SKILL_THRESHOLDS, EXAM_REQUIRED_SKILLS, REGISTRATION_REQUIRED_SKILLS } from '../lib/skillUtils';
+import { getSkillHeaderClass, EXAM_REQUIRED_SKILLS, REGISTRATION_REQUIRED_SKILLS } from '../lib/skillUtils';
 import castleImg from '../assets/castle.png';
 import frameSvg from '../assets/frame.svg';
 import owlSvg from '../assets/owl.svg';
@@ -139,18 +139,11 @@ const LogItem: React.FC<{
     }
   };
 
-  // Logic for "Complete Study" button
-  const threshold = SKILL_THRESHOLDS[log.skill_name] || 100;
-  const approvedCount = log.user_approved_count || 0;
   const isRegistrationRequired = REGISTRATION_REQUIRED_SKILLS.includes(log.skill_name);
   const isExamRequired = EXAM_REQUIRED_SKILLS.includes(log.skill_name) || isRegistrationRequired;
-  const isAlreadyCompleted = log.has_completed_status;
   const isExamLog = (log.type === 'exam') || (log.status === 'exam_passed') || (log.moderator_proposed_status === 'exam_passed');
   const isRegistrationLog = isRegistrationRequired && log.type === 'exam';
   const canEdit = isOwner && log.type === 'practice';
-  
-  // Show button if user reached threshold (90%), exam is not required, and not already completed
-  const showCompleteStudy = canModerate && !isExamRequired && approvedCount >= threshold && !isAlreadyCompleted;
   
   // Split content into paragraphs
   const paragraphs = log.content.split('\n').filter(p => p.trim().length > 0);
@@ -610,15 +603,6 @@ const LogItem: React.FC<{
                                             {isRegistrationLog ? 'Регистрация пройдена' : 'Экзамен сдан'}
                                         </button>
                                     )}
-                                     {log.moderator_proposed_status === 'study_completed' && (
-                                        <button
-                                            onClick={() => onUpdateStatus(log.id, 'study_completed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze whitespace-nowrap"
-                                        >
-                                            <BookOpen className="w-4 h-4" />
-                                            Завершить изучение
-                                        </button>
-                                    )}
                                 </>
                             ) : (
                                 // Standard View (Moderator or Admin without prior moderation)
@@ -646,17 +630,6 @@ const LogItem: React.FC<{
                                         >
                                             <GraduationCap className="w-4 h-4" />
                                             {isRegistrationLog ? 'Регистрация пройдена' : 'Экзамен сдан'}
-                                        </button>
-                                    )}
-
-                                    {showCompleteStudy && (
-                                        <button
-                                            onClick={() => onUpdateStatus(log.id, 'study_completed')}
-                                            className="flex items-center gap-1 px-4 py-2 rounded-lg bg-hogwarts-gold text-hogwarts-ink shadow-md hover:shadow-lg transition-colors font-bold font-serif border border-hogwarts-bronze whitespace-nowrap"
-                                            title="Завершить изучение: Прогресс станет 100%"
-                                        >
-                                            <BookOpen className="w-4 h-4" />
-                                            Завершить изучение
                                         </button>
                                     )}
                                 </>
@@ -709,9 +682,11 @@ export const SkillDetail: React.FC = () => {
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [applicationLog, setApplicationLog] = useState<Log | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [completionRequests, setCompletionRequests] = useState<Log[]>([]);
   
   const [showCompletionRejectModal, setShowCompletionRejectModal] = useState(false);
   const [completionRejectionReason, setCompletionRejectionReason] = useState('');
+  const [selectedCompletionRequest, setSelectedCompletionRequest] = useState<Log | null>(null);
 
   // If username is present, we are viewing a specific user's history (Public Profile mode),
   // so we should NOT show the global admin dashboard even if the user is an admin.
@@ -731,14 +706,17 @@ export const SkillDetail: React.FC = () => {
       setIsLoading(true);
       try {
         if (isAdmin) {
-             // Admin fetching logs
-             // If viewing pending, fetch pending. If viewing approved, fetch approved.
-             // Prompt says: "Есть также кнопка 'Уже одобренные', где она может посмотреть в принципе все посты всех пользователей, которые были одобрены"
              const status = viewMode === 'pending' ? 'pending' : 'approved';
-             const data = await api.logs.listAll(decodeURIComponent(skillName), status);
-             // Admin needs to see application logs in the list (especially pending)
+             const [data, requestData] = await Promise.all([
+               api.logs.listAll(decodeURIComponent(skillName), status, user?.id),
+               viewMode === 'pending' && user?.id
+                 ? api.logs.listCompletionRequests(decodeURIComponent(skillName), user.id)
+                 : Promise.resolve([])
+             ]);
              setLogs(data || []);
+             setCompletionRequests((requestData || []) as Log[]);
         } else {
+            setCompletionRequests([]);
             // User fetching logs
             let userIdToFetch = user?.id || '';
 
@@ -809,24 +787,16 @@ export const SkillDetail: React.FC = () => {
     const logToUpdate = logs.find(log => log.id === id);
     if (!logToUpdate) return;
 
-    // Logic to determine optimistic update behavior
+    // Remove acted-on items from the current queue immediately.
     const isModerator = user?.role === 'moderator' && user.managed_skills?.includes(decodeURIComponent(skillName || ''));
     const isApproval = status === 'approved' || status === 'exam_passed' || status === 'study_completed';
-    // If moderator approves, it stays in pending list (just marked), unless we are viewing approved logs (unlikely for action)
-    const shouldKeepInList = isModerator && isApproval && viewMode === 'pending';
+    const isModeratorStagedApproval = isModerator && isApproval && viewMode === 'pending';
 
-    if (shouldKeepInList) {
-         setLogs(prevLogs => prevLogs.map(l => l.id === id ? { 
-             ...l, 
-             moderator_approval_id: user?.id,
-             moderator_name: user?.name
-         } : l));
-    } else {
-         setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
-    }
+    setLogs(prevLogs => prevLogs.filter(log => log.id !== id));
 
     const skillNameDecoded = decodeURIComponent(skillName || '');
-    const canUpdateCounters = !shouldKeepInList && (user?.role === 'admin' || user?.role === 'moderator');
+    const affectsPendingCounters = logToUpdate.type !== 'completion_request';
+    const canUpdateCounters = affectsPendingCounters && (user?.role === 'admin' || user?.role === 'moderator');
     let deltaPending = 0;
     let deltaApproved = 0;
     if (canUpdateCounters) {
@@ -834,7 +804,7 @@ export const SkillDetail: React.FC = () => {
         if (status === 'rejected' || status === 'approved' || status === 'exam_passed' || status === 'study_completed') {
           deltaPending = -1;
         }
-        if (status === 'approved') {
+        if (status === 'approved' && !isModeratorStagedApproval) {
           deltaApproved = 1;
         }
       } else if (viewMode === 'approved') {
@@ -875,21 +845,34 @@ export const SkillDetail: React.FC = () => {
           }));
         }
         // Rollback
-        if (shouldKeepInList) {
-             setLogs(prevLogs => prevLogs.map(l => l.id === id ? logToUpdate : l));
-        } else {
-             setLogs(prevLogs => [...prevLogs, logToUpdate]);
-        }
+        setLogs(prevLogs => [...prevLogs, logToUpdate]);
+    }
+  };
+
+  const handleCompletionRequestStatus = async (request: Log, status: 'study_completed' | 'rejected', rejectionReason?: string) => {
+    setCompletionRequests(prev => prev.filter(item => item.id !== request.id));
+
+    try {
+      await updateLogStatus(request.id, status, rejectionReason);
+    } catch (e: any) {
+      console.error('Failed to update completion request', e);
+      alert(e.message || 'Не удалось обновить заявку на завершение обучения.');
+      setCompletionRequests(prev => [request, ...prev]);
+      throw e;
     }
   };
 
   const handleRejectCompletion = async () => {
-      const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
-      if (!completionRequestLog) return;
+      if (!selectedCompletionRequest) return;
       
       setShowCompletionRejectModal(false);
-      await handleUpdateStatus(completionRequestLog.id, 'rejected', completionRejectionReason);
+      if (isAdmin && !username) {
+          await handleCompletionRequestStatus(selectedCompletionRequest, 'rejected', completionRejectionReason);
+      } else {
+          await handleUpdateStatus(selectedCompletionRequest.id, 'rejected', completionRejectionReason);
+      }
       setCompletionRejectionReason('');
+      setSelectedCompletionRequest(null);
   };
 
   const escapeXml = (value: string) => {
@@ -1116,6 +1099,8 @@ export const SkillDetail: React.FC = () => {
 
   const completionRequestLog = logs.find(l => l.type === 'completion_request' && l.status === 'pending');
   const visibleLogs = sortedLogs.filter(log => log.type !== 'completion_request');
+  const showAdminCompletionRequests = isAdmin && viewMode === 'pending' && completionRequests.length > 0;
+  const hasVisibleContent = visibleLogs.length > 0 || showAdminCompletionRequests || (!!completionRequestLog && canModerate);
   
   // Нумерация постов всегда должна быть хронологической (№1 - самый ранний)
   const nonRejectedForIndexing = [...logs]
@@ -1340,7 +1325,7 @@ export const SkillDetail: React.FC = () => {
             <div className="animate-spin w-12 h-12 border-4 border-hogwarts-red border-t-transparent rounded-full mx-auto"></div>
             <p className="mt-4 font-magical text-hogwarts-ink font-serif">Изучаем архивы...</p>
           </div>
-        ) : logs.length === 0 ? (
+        ) : !hasVisibleContent ? (
           <div className="text-center py-12 bg-white/50 rounded-lg border-2 border-hogwarts-bronze border-dashed">
             <Scroll className="w-16 h-16 mx-auto text-hogwarts-silver mb-4" />
             <p className="text-xl font-magical text-hogwarts-ink font-serif">
@@ -1354,6 +1339,73 @@ export const SkillDetail: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-8">
+            {showAdminCompletionRequests && (
+              <section className="bg-white/95 rounded-lg shadow-xl border-2 border-hogwarts-gold p-4 md:p-6">
+                <div className="flex items-center gap-2 text-hogwarts-red mb-4">
+                  <Shield className="w-5 h-5" />
+                  <h2 className="text-lg md:text-xl font-serif font-bold">Заявки на завершение обучения</h2>
+                </div>
+                <div className="space-y-4">
+                  {completionRequests.map((request) => (
+                    <article
+                      key={request.id}
+                      className="rounded-lg border border-hogwarts-bronze bg-hogwarts-parchment/60 p-4 md:p-5 shadow-sm"
+                    >
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-hogwarts-purple font-bold font-serif">
+                            <UserIcon className="w-4 h-4" />
+                            <span>{request.wizards?.name || 'Неизвестный волшебник'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-hogwarts-ink/70 font-serif">
+                            <Calendar className="w-4 h-4" />
+                            <span>
+                              {new Date(request.created_at).toLocaleDateString('ru-RU', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-sm md:text-base text-hogwarts-ink font-serif whitespace-nowrap overflow-hidden text-ellipsis">
+                          Подана заявка на завершение изучения навыка.
+                        </div>
+                        <div className="flex flex-col gap-3 md:grid md:grid-cols-3 md:w-full">
+                          <button
+                            onClick={() => navigate(`/skill/${encodeURIComponent(decodedSkillName)}?username=${encodeURIComponent(request.wizards?.name || '')}`)}
+                            disabled={!request.wizards?.name}
+                            className="flex w-full items-center justify-center gap-2 px-4 py-2 rounded-lg border border-hogwarts-bronze text-hogwarts-ink hover:bg-white transition-colors font-serif font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <BookOpen className="w-4 h-4" />
+                            К практике навыка
+                          </button>
+                          <button
+                            onClick={() => handleCompletionRequestStatus(request, 'study_completed')}
+                            className="flex w-full items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#006633] text-white hover:bg-[#005229] transition-colors font-serif font-bold whitespace-nowrap shadow-md"
+                          >
+                            <Check className="w-4 h-4" />
+                            Принять заявку
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedCompletionRequest(request);
+                              setShowCompletionRejectModal(true);
+                            }}
+                            className="flex w-full items-center justify-center gap-2 px-4 py-2 rounded-lg bg-hogwarts-red text-white hover:bg-red-800 transition-colors font-serif font-bold whitespace-nowrap shadow-md"
+                          >
+                            <X className="w-4 h-4" />
+                            Отклонить заявку
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
             {visibleLogs.map((log) => (
               <LogItem 
                 key={log.id} 
@@ -1382,7 +1434,10 @@ export const SkillDetail: React.FC = () => {
              </button>
              
              <button
-                 onClick={() => setShowCompletionRejectModal(true)}
+                 onClick={() => {
+                     setSelectedCompletionRequest(completionRequestLog);
+                     setShowCompletionRejectModal(true);
+                 }}
                  className="px-6 py-3 rounded-full bg-hogwarts-red/90 text-white font-bold text-base shadow-[0_0_15px_rgba(255,0,0,0.4)] hover:shadow-[0_0_25px_rgba(255,0,0,0.6)] transition-all border-2 border-red-400/50 backdrop-blur-sm hover:scale-105"
                  style={{ fontFamily: 'RobotoforLearning-Medium_0' }}
              >
@@ -1407,6 +1462,7 @@ export const SkillDetail: React.FC = () => {
                         onClick={() => {
                             setShowCompletionRejectModal(false);
                             setCompletionRejectionReason('');
+                            setSelectedCompletionRequest(null);
                         }}
                         className="px-4 py-2 rounded-lg border border-hogwarts-bronze text-hogwarts-ink hover:bg-hogwarts-parchment transition-colors font-serif font-bold"
                     >

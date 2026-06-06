@@ -127,7 +127,8 @@ export interface ApiClient {
   };
   logs: {
     list: (userId: string, skillName?: string) => Promise<PracticeLog[]>;
-    listAll: (skillName?: string, status?: string) => Promise<PracticeLog[]>; // For admin
+    listAll: (skillName?: string, status?: string, userId?: string) => Promise<PracticeLog[]>; // For admin/moderator
+    listCompletionRequests: (skillName: string, userId: string) => Promise<PracticeLog[]>;
     pendingCounts: (userId: string) => Promise<Record<string, number>>; // Fast pending counts for admin/moderator
     approvedCounts: (userId: string) => Promise<Record<string, number>>; // Fast approved counts for admin/moderator
     updateContent: (id: string, userId: string, content: string, wordCount: number) => Promise<PracticeLog>;

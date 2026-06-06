@@ -243,6 +243,18 @@ export const PublicProfile: React.FC = () => {
           const age = userData.age;
           
           if (['Метаморфомагия', 'Провидение'].includes(name)) {
+              const appStatus = applicationStatusMap.get(name);
+              if (hasExamPassed) {
+                  return {
+                      id: name,
+                      name,
+                      progress: 100,
+                      level: 3,
+                      applicationStatus: 'approved',
+                      approvedCount: count,
+                      hasExamPassed
+                  };
+              }
               const base = calculateSpecialSkillStatus(count);
               const adjusted = applyAgeRestrictions(name, age, count, base.progress, base.level, userData.role === 'admin');
               
@@ -251,8 +263,9 @@ export const PublicProfile: React.FC = () => {
                   name,
                   progress: adjusted.progress,
                   level: adjusted.level,
-                  applicationStatus: applicationStatusMap.get(name),
+                  applicationStatus: appStatus,
                   approvedCount: count,
+                  hasExamPassed,
                   ageCapMessage: adjusted.ageCapMessage
               };
           }

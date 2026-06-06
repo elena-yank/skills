@@ -157,15 +157,26 @@ export const restApi: ApiClient = {
       if (!res.ok) throw new Error(data.error);
       return data as PracticeLog[];
     },
-    listAll: async (skillName, status) => {
+    listAll: async (skillName, status, userId) => {
        const params = new URLSearchParams();
        if (skillName) params.append('skill_name', skillName);
        if (status) params.append('status', status);
+       if (userId) params.append('user_id', userId);
 
        const res = await fetch(`${API_URL}/admin/logs?${params}`);
        const data = await res.json();
        if (!res.ok) throw new Error(data.error);
        return data as PracticeLog[];
+    },
+    listCompletionRequests: async (skillName, userId) => {
+      const params = new URLSearchParams({
+        skill_name: skillName,
+        user_id: userId,
+      });
+      const res = await fetch(`${API_URL}/admin/completion-requests?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data as PracticeLog[];
     },
     create: async (log) => {
       const res = await fetch(`${API_URL}/logs`, {
